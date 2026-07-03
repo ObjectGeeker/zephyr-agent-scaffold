@@ -24,3 +24,43 @@ create table tb_user
 
 create index idx_deleted
     on tb_user (deleted);
+
+create table tb_file
+(
+    id           varchar(50)                          not null comment '主键'
+        primary key,
+    storage_type varchar(32)                          null comment '存储类型',
+    bucket       varchar(128)                         null comment '存储桶名称',
+    object_key   varchar(512)                         not null comment '对象存储路径',
+    file_name    varchar(255)                         null comment '存储文件名',
+    origin_name  varchar(255)                         null comment '用户原始文件名',
+    file_size    bigint                               null comment '文件大小（字节）',
+    content_type varchar(128)                         null comment 'MIME 类型',
+    file_hash    varchar(64)                          null comment '文件哈希（SHA-256）',
+    user_id      varchar(50)                          null comment '所属用户 ID',
+    biz_type     varchar(64)                          null comment '业务类型',
+    biz_id       varchar(50)                          null comment '业务关联 ID',
+    status       varchar(20)                          null comment '文件状态',
+    is_temp      tinyint(1) default 0                 not null comment '是否临时文件：0-否 1-是',
+    create_time  datetime   default CURRENT_TIMESTAMP not null comment '创建时间',
+    update_time  datetime   default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
+    create_by    varchar(50)                          null comment '创建人用户 ID',
+    update_by    varchar(50)                          null comment '更新人用户 ID',
+    deleted      tinyint    default 0                 not null comment '逻辑删除：0-未删除 1-已删除'
+)
+    comment '系统文件元数据表' collate = utf8mb4_unicode_ci;
+
+create index idx_file_object_key
+    on tb_file (object_key);
+
+create index idx_file_hash
+    on tb_file (file_hash);
+
+create index idx_file_user_id
+    on tb_file (user_id);
+
+create index idx_file_biz
+    on tb_file (biz_type, biz_id);
+
+create index idx_file_deleted
+    on tb_file (deleted);

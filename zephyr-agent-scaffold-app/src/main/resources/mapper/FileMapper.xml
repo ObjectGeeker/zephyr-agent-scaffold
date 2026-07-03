@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.object.ai.file.mapper.FileMapper">
+
+    <resultMap id="BaseResultMap" type="com.object.ai.file.model.po.FilePO">
+        <id column="id" property="id"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="deleted" property="deleted"/>
+        <result column="storage_type" property="storageType"/>
+        <result column="bucket" property="bucket"/>
+        <result column="object_key" property="objectKey"/>
+        <result column="file_name" property="fileName"/>
+        <result column="origin_name" property="originName"/>
+        <result column="file_size" property="fileSize"/>
+        <result column="content_type" property="contentType"/>
+        <result column="file_hash" property="fileHash"/>
+        <result column="user_id" property="userId"/>
+        <result column="biz_type" property="bizType"/>
+        <result column="biz_id" property="bizId"/>
+        <result column="status" property="status"/>
+        <result column="is_temp" property="isTemp"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, create_by, create_time, update_by, update_time, deleted,
+        storage_type, bucket, object_key, file_name, origin_name, file_size,
+        content_type, file_hash, user_id, biz_type, biz_id, status, is_temp
+    </sql>
+</mapper>

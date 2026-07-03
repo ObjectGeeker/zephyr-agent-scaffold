@@ -55,3 +55,5 @@ logs/
 /data/
 /zephyr-agent-scaffold-app/src/main/resources/application-local.properties
 /zephyr-agent-scaffold-app/src/main/resources/agent/only-one-agent.yml
+/zephyr-agent-scaffold-app/src/main/resources/files/background/2026/07/03/
+/zephyr-agent-scaffold-app/src/main/resources/static/uploads/common/2026/07/03/

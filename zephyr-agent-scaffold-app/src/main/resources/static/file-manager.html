@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>用户管理 — Zephyr Agent</title>
+    <title>文件管理 — Zephyr Agent</title>
     <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
     <link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" type="text/css" />
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
@@ -82,9 +82,7 @@
             font-weight: 800;
         }
 
-        .sidebar-copy {
-            margin-top: 72px;
-        }
+        .sidebar-copy { margin-top: 72px; }
 
         .sidebar-copy h1 {
             margin: 0 0 14px;
@@ -152,6 +150,12 @@
             font-size: 14px;
         }
 
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
         .theme-toggle {
             border: 1px solid var(--border);
             background: var(--main-surface);
@@ -189,14 +193,16 @@
         }
 
         .input,
-        .select {
+        .select,
+        .file-input {
             background: var(--main-bg);
             border-color: var(--border);
             color: var(--text-main);
         }
 
         .input:focus,
-        .select:focus {
+        .select:focus,
+        .file-input:focus {
             outline: none;
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.12);
@@ -289,13 +295,8 @@
         [data-theme="dark"] .message-box.error { color: #ff9a8d; }
         [data-theme="dark"] .message-box.info { color: #b8adff; }
 
-        .table-panel {
-            overflow: hidden;
-        }
-
-        .table-wrap {
-            overflow-x: auto;
-        }
+        .table-panel { overflow: hidden; }
+        .table-wrap { overflow-x: auto; }
 
         table {
             width: 100%;
@@ -317,9 +318,7 @@
             font-weight: 700;
         }
 
-        td {
-            color: var(--text-main);
-        }
+        td { color: var(--text-main); }
 
         .empty-state {
             padding: 48px 20px;
@@ -344,10 +343,9 @@
             color: var(--danger);
         }
 
-        .role-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
+        .badge-muted {
+            background: rgba(110, 110, 128, 0.14);
+            color: var(--text-muted);
         }
 
         .row-actions {
@@ -394,18 +392,17 @@
             background: rgba(0,0,0,0.45);
         }
 
-        .modal-backdrop.show {
-            display: flex;
-        }
+        .modal-backdrop.show { display: flex; }
 
         .modal-card {
             width: 100%;
-            max-width: 560px;
+            max-width: 720px;
+            max-height: calc(100vh - 40px);
             background: var(--main-surface);
             border: 1px solid var(--border);
             border-radius: 16px;
             box-shadow: var(--shadow);
-            overflow: hidden;
+            overflow: auto;
         }
 
         .modal-header,
@@ -428,8 +425,16 @@
             font-weight: 800;
         }
 
-        .modal-body {
-            padding: 20px;
+        .modal-body { padding: 20px; }
+
+        .preview-image {
+            display: block;
+            max-width: 100%;
+            max-height: 70vh;
+            margin: 0 auto;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: var(--main-bg);
         }
 
         .modal-grid {
@@ -438,54 +443,62 @@
             gap: 14px;
         }
 
-        .role-checks {
-            display: flex;
-            gap: 16px;
-            min-height: 38px;
-            align-items: center;
+        .modal-section {
+            grid-column: 1 / -1;
+            padding: 14px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--main-bg);
         }
 
-        .role-checks label {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            color: var(--text-main);
-            font-size: 13px;
+        .upload-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 10px;
+            align-items: end;
         }
 
-        @media (max-width: 1100px) {
+        .muted-text {
+            color: var(--text-muted);
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            max-width: 320px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        @media (max-width: 1200px) {
             .filter-grid {
                 grid-template-columns: repeat(3, minmax(120px, 1fr));
             }
         }
 
         @media (max-width: 860px) {
-            .manager-shell {
-                grid-template-columns: 1fr;
-            }
-
+            .manager-shell { grid-template-columns: 1fr; }
             .manager-sidebar {
                 min-height: auto;
                 padding: 24px;
             }
-
-            .sidebar-copy {
-                margin-top: 42px;
-            }
-
-            .manager-main {
-                padding: 24px;
-            }
+            .sidebar-copy { margin-top: 42px; }
+            .manager-main { padding: 24px; }
         }
 
         @media (max-width: 640px) {
             .filter-grid,
-            .modal-grid {
+            .modal-grid,
+            .upload-row {
                 grid-template-columns: 1fr;
             }
-
             .page-header,
             .pagination-bar {
+                align-items: stretch;
+                flex-direction: column;
+            }
+            .header-actions {
                 align-items: stretch;
                 flex-direction: column;
             }
@@ -501,12 +514,12 @@
                 <span>Zephyr Agent</span>
             </div>
             <div class="sidebar-copy">
-                <h1>管理已有用户。</h1>
-                <p>查询用户、维护基础资料与角色，并通过独立状态接口完成封禁或解封。</p>
+                <h1>管理系统文件。</h1>
+                <p>上传临时文件、补充业务信息，并统一维护文件元数据与存储对象。</p>
             </div>
         </div>
         <div class="sidebar-actions">
-            <a class="sidebar-link" href="file-manager.html">文件管理页面</a>
+            <a class="sidebar-link" href="user-manager.html">用户管理页面</a>
             <a class="sidebar-link" href="index.html">返回对话页面</a>
             <button class="sidebar-button" id="logoutBtn" type="button">重新登录</button>
         </div>
@@ -515,10 +528,13 @@
     <main class="manager-main">
         <div class="page-header">
             <div>
-                <h2>用户管理</h2>
-                <p id="userSummary">管理员可修改已有用户资料、角色和状态，不支持新增用户。</p>
+                <h2>文件管理</h2>
+                <p id="userSummary">管理员可查询文件、上传临时文件并维护文件业务信息。</p>
             </div>
-            <button class="theme-toggle" id="themeToggle" type="button">主题切换</button>
+            <div class="header-actions">
+                <button class="primary-btn" id="createFileBtn" type="button">新增文件</button>
+                <button class="theme-toggle" id="themeToggle" type="button">主题切换</button>
+            </div>
         </div>
 
         <div class="message-box hidden" id="messageBox" role="alert"></div>
@@ -526,35 +542,52 @@
         <section class="card-panel filter-panel" id="managerContent">
             <div class="filter-grid">
                 <div>
-                    <label class="form-label" for="filterAccount">账号</label>
-                    <input class="input input-bordered w-full" id="filterAccount" type="text" placeholder="账号">
+                    <label class="form-label" for="filterOriginName">原始文件名</label>
+                    <input class="input input-bordered w-full" id="filterOriginName" type="text" placeholder="文件名">
                 </div>
                 <div>
-                    <label class="form-label" for="filterUsername">用户名</label>
-                    <input class="input input-bordered w-full" id="filterUsername" type="text" placeholder="用户名">
+                    <label class="form-label" for="filterStorageType">存储类型</label>
+                    <select class="select select-bordered w-full" id="filterStorageType">
+                        <option value="">全部类型</option>
+                        <option value="local">local</option>
+                        <option value="minio">minio</option>
+                    </select>
                 </div>
                 <div>
-                    <label class="form-label" for="filterEmail">邮箱</label>
-                    <input class="input input-bordered w-full" id="filterEmail" type="text" placeholder="邮箱">
+                    <label class="form-label" for="filterBucket">Bucket</label>
+                    <input class="input input-bordered w-full" id="filterBucket" type="text" placeholder="bucket">
                 </div>
                 <div>
-                    <label class="form-label" for="filterPhone">手机</label>
-                    <input class="input input-bordered w-full" id="filterPhone" type="text" placeholder="手机">
+                    <label class="form-label" for="filterObjectKey">Object Key</label>
+                    <input class="input input-bordered w-full" id="filterObjectKey" type="text" placeholder="object key">
+                </div>
+                <div>
+                    <label class="form-label" for="filterUserId">用户 ID</label>
+                    <input class="input input-bordered w-full" id="filterUserId" type="text" placeholder="userId">
+                </div>
+                <div>
+                    <label class="form-label" for="filterBizType">业务类型</label>
+                    <input class="input input-bordered w-full" id="filterBizType" type="text" placeholder="avatar">
+                </div>
+                <div>
+                    <label class="form-label" for="filterBizId">业务 ID</label>
+                    <input class="input input-bordered w-full" id="filterBizId" type="text" placeholder="bizId">
                 </div>
                 <div>
                     <label class="form-label" for="filterStatus">状态</label>
                     <select class="select select-bordered w-full" id="filterStatus">
                         <option value="">全部状态</option>
-                        <option value="ACTIVE">ACTIVE</option>
-                        <option value="BAN">BAN</option>
+                        <option value="UPLOADING">UPLOADING</option>
+                        <option value="SUCCESS">SUCCESS</option>
+                        <option value="FAILED">FAILED</option>
                     </select>
                 </div>
                 <div>
-                    <label class="form-label" for="filterRole">角色</label>
-                    <select class="select select-bordered w-full" id="filterRole">
-                        <option value="">全部角色</option>
-                        <option value="ADMIN">ADMIN</option>
-                        <option value="USER">USER</option>
+                    <label class="form-label" for="filterIsTemp">临时文件</label>
+                    <select class="select select-bordered w-full" id="filterIsTemp">
+                        <option value="">全部</option>
+                        <option value="true">临时</option>
+                        <option value="false">正式</option>
                     </select>
                 </div>
             </div>
@@ -569,19 +602,22 @@
                 <table>
                     <thead>
                     <tr>
-                        <th>账号</th>
-                        <th>用户名</th>
-                        <th>角色</th>
+                        <th>文件名</th>
+                        <th>存储</th>
+                        <th>Object Key</th>
+                        <th>大小</th>
+                        <th>MIME</th>
+                        <th>用户</th>
+                        <th>业务</th>
                         <th>状态</th>
-                        <th>邮箱</th>
-                        <th>手机</th>
-                        <th>最后登录</th>
+                        <th>临时</th>
+                        <th>创建时间</th>
                         <th>操作</th>
                     </tr>
                     </thead>
-                    <tbody id="userTableBody"></tbody>
+                    <tbody id="fileTableBody"></tbody>
                 </table>
-                <div class="empty-state hidden" id="emptyState">暂无用户数据</div>
+                <div class="empty-state hidden" id="emptyState">暂无文件数据</div>
             </div>
             <div class="pagination-bar">
                 <span id="pageInfo">第 1 页 / 共 1 页，共 0 条</span>
@@ -594,45 +630,58 @@
     </main>
 </div>
 
-<div class="modal-backdrop" id="editModal">
+<div class="modal-backdrop" id="fileModal">
     <section class="modal-card">
         <div class="modal-header">
-            <h3>编辑用户</h3>
+            <h3 id="modalTitle">新增文件</h3>
         </div>
-        <form id="editForm">
+        <form id="fileForm">
             <div class="modal-body">
                 <input id="editId" type="hidden">
+                <input id="uploadedFileId" type="hidden">
                 <div class="modal-grid">
-                    <div>
-                        <label class="form-label" for="editUsername">用户名</label>
-                        <input class="input input-bordered w-full" id="editUsername" type="text" placeholder="用户名">
-                    </div>
-                    <div>
-                        <label class="form-label" for="editEmail">邮箱</label>
-                        <input class="input input-bordered w-full" id="editEmail" type="email" placeholder="邮箱">
-                    </div>
-                    <div>
-                        <label class="form-label" for="editPhone">手机</label>
-                        <input class="input input-bordered w-full" id="editPhone" type="text" placeholder="手机">
-                    </div>
-                    <div>
-                        <label class="form-label" for="editAvatar">头像 URL</label>
-                        <input class="input input-bordered w-full" id="editAvatar" type="text" placeholder="https://...">
-                    </div>
-                    <div style="grid-column: 1 / -1;">
-                        <span class="form-label">角色</span>
-                        <div class="role-checks">
-                            <label><input id="editRoleUser" type="checkbox" value="USER"> USER</label>
-                            <label><input id="editRoleAdmin" type="checkbox" value="ADMIN"> ADMIN</label>
+                    <div class="modal-section">
+                        <label class="form-label" for="fileInput">文件上传</label>
+                        <div class="upload-row">
+                            <input class="file-input file-input-bordered w-full" id="fileInput" type="file">
+                            <button class="warning-btn" id="uploadFileBtn" type="button">上传文件</button>
                         </div>
+                        <p class="muted-text" id="uploadHint">新增时请先上传文件；编辑时可不上传，或上传新文件来替换旧文件。</p>
+                        <p class="muted-text">临时文件 ID：<span class="mono" id="uploadedFileIdText">-</span></p>
+                    </div>
+                    <div>
+                        <label class="form-label" for="editOriginName">原始文件名</label>
+                        <input class="input input-bordered w-full" id="editOriginName" type="text" placeholder="展示文件名">
+                    </div>
+                    <div>
+                        <label class="form-label" for="editBizType">业务类型</label>
+                        <input class="input input-bordered w-full" id="editBizType" type="text" placeholder="avatar / knowledge">
+                    </div>
+                    <div class="modal-section" id="currentFileInfo">
+                        <p class="muted-text">当前文件：<span class="mono" id="currentObjectKey">-</span></p>
+                        <p class="muted-text">访问地址：<span id="currentFileUrl">-</span></p>
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="ghost-btn" id="cancelEditBtn" type="button">取消</button>
-                <button class="primary-btn" id="saveEditBtn" type="submit">保存</button>
+                <button class="ghost-btn" id="cancelFileBtn" type="button">取消</button>
+                <button class="primary-btn" id="saveFileBtn" type="submit">保存</button>
             </div>
         </form>
+    </section>
+</div>
+
+<div class="modal-backdrop" id="previewModal">
+    <section class="modal-card">
+        <div class="modal-header">
+            <h3 id="previewTitle">图片预览</h3>
+        </div>
+        <div class="modal-body">
+            <img class="preview-image" id="previewImage" src="" alt="文件预览">
+        </div>
+        <div class="modal-footer">
+            <button class="ghost-btn" id="closePreviewBtn" type="button">关闭</button>
+        </div>
     </section>
 </div>
 
@@ -646,21 +695,23 @@
     const PAGE_SIZE = 10;
 
     let currentUser = null;
-    let users = [];
+    let files = [];
     let currentPage = 1;
     let totalPages = 1;
     let totalRecords = 0;
     let loading = false;
+    let modalMode = 'create';
 
     const $ = (sel) => document.querySelector(sel);
     const html = document.documentElement;
     const messageBox = $('#messageBox');
-    const tableBody = $('#userTableBody');
+    const tableBody = $('#fileTableBody');
     const emptyState = $('#emptyState');
     const pageInfo = $('#pageInfo');
     const prevPageBtn = $('#prevPageBtn');
     const nextPageBtn = $('#nextPageBtn');
-    const editModal = $('#editModal');
+    const fileModal = $('#fileModal');
+    const previewModal = $('#previewModal');
 
     function getStoredUser() {
         try {
@@ -691,9 +742,24 @@
         loading = nextLoading;
         $('#searchBtn').disabled = loading;
         $('#resetBtn').disabled = loading;
+        $('#createFileBtn').disabled = loading;
+        $('#uploadFileBtn').disabled = loading;
+        $('#saveFileBtn').disabled = loading;
         prevPageBtn.disabled = loading || currentPage <= 1;
         nextPageBtn.disabled = loading || currentPage >= totalPages;
-        $('#saveEditBtn').disabled = loading;
+    }
+
+    async function parseResponse(res, fallbackMessage) {
+        let json = null;
+        try {
+            json = await res.json();
+        } catch (error) {
+            throw new Error('服务响应解析失败');
+        }
+        if (json.code !== 200) {
+            throw new Error(json.message || fallbackMessage);
+        }
+        return json.data;
     }
 
     async function apiPost(path, payload) {
@@ -705,53 +771,62 @@
             },
             body: JSON.stringify(payload)
         });
-        let json = null;
-        try {
-            json = await res.json();
-        } catch (error) {
-            throw new Error('服务响应解析失败');
-        }
-        if (json.code !== 200) {
-            throw new Error(json.message || '请求失败');
-        }
-        return json.data;
+        return parseResponse(res, '请求失败');
+    }
+
+    async function apiUpload(file, request) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('request', new Blob([JSON.stringify(request || {})], { type: 'application/json' }));
+        const res = await fetch(`${API_BASE}/file/manager/upload`, {
+            method: 'POST',
+            credentials: 'include',
+            body: formData
+        });
+        return parseResponse(res, '上传失败');
     }
 
     function getFilterInfo() {
         const filterInfo = {};
         const fields = [
-            ['userAccount', $('#filterAccount').value.trim()],
-            ['username', $('#filterUsername').value.trim()],
-            ['email', $('#filterEmail').value.trim()],
-            ['phone', $('#filterPhone').value.trim()],
-            ['status', $('#filterStatus').value],
-            ['role', $('#filterRole').value]
+            ['originName', $('#filterOriginName').value.trim()],
+            ['storageType', $('#filterStorageType').value],
+            ['bucket', $('#filterBucket').value.trim()],
+            ['objectKey', $('#filterObjectKey').value.trim()],
+            ['userId', $('#filterUserId').value.trim()],
+            ['bizType', $('#filterBizType').value.trim()],
+            ['bizId', $('#filterBizId').value.trim()],
+            ['status', $('#filterStatus').value]
         ];
         fields.forEach(([key, value]) => {
             if (value) {
                 filterInfo[key] = value;
             }
         });
+        const isTemp = $('#filterIsTemp').value;
+        if (isTemp) {
+            filterInfo.isTemp = isTemp === 'true';
+        }
         return filterInfo;
     }
 
-    async function loadUsers(page = currentPage) {
+    async function loadFiles(page = currentPage) {
         try {
             setLoading(true);
             clearMessage();
-            const pageData = await apiPost('/user/manager/findAllUser', {
+            const pageData = await apiPost('/file/manager/findAllFile', {
                 pageIndex: page,
                 pageSize: PAGE_SIZE,
                 filterInfo: getFilterInfo()
             });
-            users = Array.isArray(pageData?.records) ? pageData.records : [];
+            files = Array.isArray(pageData?.records) ? pageData.records : [];
             currentPage = Number(pageData?.current || page);
             totalPages = Math.max(1, Number(pageData?.pages || 1));
             totalRecords = Number(pageData?.total || 0);
             renderTable();
             renderPagination();
         } catch (error) {
-            users = [];
+            files = [];
             renderTable();
             renderPagination();
             showMessage(error.message, 'error');
@@ -762,22 +837,27 @@
 
     function renderTable() {
         tableBody.innerHTML = '';
-        emptyState.classList.toggle('hidden', users.length > 0);
-        users.forEach((user) => {
+        emptyState.classList.toggle('hidden', files.length > 0);
+        files.forEach((file) => {
             const tr = document.createElement('tr');
+            const previewUrl = getPreviewUrl(file.id);
             tr.innerHTML = `
-                <td>${escapeHtml(user.userAccount || '-')}</td>
-                <td>${escapeHtml(user.username || '-')}</td>
-                <td>${renderRoles(user.roles)}</td>
-                <td>${renderStatus(user.status)}</td>
-                <td>${escapeHtml(user.email || '-')}</td>
-                <td>${escapeHtml(user.phone || '-')}</td>
-                <td>${formatTime(user.lastLoginTime)}</td>
+                <td>${escapeHtml(file.originName || file.fileName || '-')}</td>
+                <td>${escapeHtml(file.storageType || '-')}${file.bucket ? ` / ${escapeHtml(file.bucket)}` : ''}</td>
+                <td><span class="mono" title="${escapeAttribute(file.objectKey || '')}">${escapeHtml(file.objectKey || '-')}</span></td>
+                <td>${formatFileSize(file.fileSize)}</td>
+                <td>${escapeHtml(file.contentType || '-')}</td>
+                <td>${escapeHtml(file.userId || '-')}</td>
+                <td>${escapeHtml(file.bizType || '-')}${file.bizId ? ` / ${escapeHtml(file.bizId)}` : ''}</td>
+                <td>${renderStatus(file.status)}</td>
+                <td>${renderTemp(file.isTemp)}</td>
+                <td>${formatTime(file.createTime)}</td>
                 <td>
                     <div class="row-actions">
-                        <button class="link-btn" type="button" data-action="edit" data-id="${escapeHtml(user.id)}">编辑</button>
-                        <button class="link-btn warning" type="button" data-action="status" data-id="${escapeHtml(user.id)}">${user.status === 'BAN' ? '解封' : '封禁'}</button>
-                        <button class="link-btn danger" type="button" data-action="delete" data-id="${escapeHtml(user.id)}">删除</button>
+                        <a class="link-btn" href="${escapeAttribute(previewUrl)}" target="_blank" rel="noreferrer">打开</a>
+                        <button class="link-btn" type="button" data-action="preview" data-id="${escapeAttribute(file.id)}">预览</button>
+                        <button class="link-btn" type="button" data-action="edit" data-id="${escapeAttribute(file.id)}">编辑</button>
+                        <button class="link-btn danger" type="button" data-action="delete" data-id="${escapeAttribute(file.id)}">删除</button>
                     </div>
                 </td>
             `;
@@ -785,16 +865,14 @@
         });
     }
 
-    function renderRoles(roles) {
-        if (!Array.isArray(roles) || roles.length === 0) {
-            return '-';
-        }
-        return `<span class="role-list">${roles.map((role) => `<span class="badge-soft">${escapeHtml(role)}</span>`).join('')}</span>`;
+    function renderStatus(status) {
+        const isFailed = status === 'FAILED';
+        const isUploading = status === 'UPLOADING';
+        return `<span class="badge-soft ${isFailed ? 'badge-warn' : ''} ${isUploading ? 'badge-muted' : ''}">${escapeHtml(status || '-')}</span>`;
     }
 
-    function renderStatus(status) {
-        const isBan = status === 'BAN';
-        return `<span class="badge-soft ${isBan ? 'badge-warn' : ''}">${escapeHtml(status || '-')}</span>`;
+    function renderTemp(isTemp) {
+        return `<span class="badge-soft ${isTemp ? 'badge-warn' : ''}">${isTemp ? '临时' : '正式'}</span>`;
     }
 
     function renderPagination() {
@@ -803,112 +881,130 @@
         nextPageBtn.disabled = loading || currentPage >= totalPages;
     }
 
-    function formatTime(value) {
-        if (!value) {
-            return '-';
+    function findFile(id) {
+        return files.find((file) => file.id === id);
+    }
+
+    function getPreviewUrl(fileId) {
+        return `${API_BASE}/file/manager/preview/${encodeURIComponent(fileId || '')}`;
+    }
+
+    function openCreateModal() {
+        modalMode = 'create';
+        $('#modalTitle').textContent = '新增文件';
+        $('#editId').value = '';
+        $('#uploadedFileId').value = '';
+        $('#uploadedFileIdText').textContent = '-';
+        $('#fileInput').value = '';
+        $('#editOriginName').value = '';
+        $('#editBizType').value = '';
+        $('#currentObjectKey').textContent = '-';
+        $('#currentFileUrl').innerHTML = '-';
+        $('#uploadHint').textContent = '请选择文件并点击上传，上传成功后再保存文件详情。';
+        fileModal.classList.add('show');
+    }
+
+    function openEditModal(file) {
+        modalMode = 'edit';
+        $('#modalTitle').textContent = '编辑文件';
+        $('#editId').value = file.id || '';
+        $('#uploadedFileId').value = '';
+        $('#uploadedFileIdText').textContent = '-';
+        $('#fileInput').value = '';
+        $('#editOriginName').value = file.originName || '';
+        $('#editBizType').value = file.bizType || '';
+        $('#currentObjectKey').textContent = file.objectKey || '-';
+        const previewUrl = getPreviewUrl(file.id);
+        $('#currentFileUrl').innerHTML = `<a class="link-btn" href="${escapeAttribute(previewUrl)}" target="_blank" rel="noreferrer">${escapeHtml(previewUrl)}</a>`;
+        $('#uploadHint').textContent = '如需替换文件，请先上传新文件；只改信息可直接保存。';
+        fileModal.classList.add('show');
+    }
+
+    function closeFileModal() {
+        fileModal.classList.remove('show');
+    }
+
+    function previewImage(file) {
+        if (!String(file.contentType || '').startsWith('image/')) {
+            showMessage('当前文件不是图片类型，请使用“打开”查看。', 'info');
+            return;
         }
-        return String(value).replace('T', ' ').slice(0, 19);
+        $('#previewTitle').textContent = file.originName || file.fileName || '图片预览';
+        $('#previewImage').src = getPreviewUrl(file.id);
+        $('#previewImage').alt = file.originName || file.fileName || '文件预览';
+        previewModal.classList.add('show');
     }
 
-    function escapeHtml(value) {
-        return String(value ?? '')
-            .replaceAll('&', '&amp;')
-            .replaceAll('<', '&lt;')
-            .replaceAll('>', '&gt;')
-            .replaceAll('"', '&quot;')
-            .replaceAll("'", '&#39;');
+    function closePreviewModal() {
+        previewModal.classList.remove('show');
+        $('#previewImage').src = '';
     }
 
-    function findUser(id) {
-        return users.find((user) => user.id === id);
+    async function uploadSelectedFile() {
+        const file = $('#fileInput').files[0];
+        if (!file) {
+            showMessage('请先选择文件', 'error');
+            return;
+        }
+        try {
+            setLoading(true);
+            const uploadedId = await apiUpload(file, {
+                bizType: $('#editBizType').value.trim()
+            });
+            $('#uploadedFileId').value = uploadedId;
+            $('#uploadedFileIdText').textContent = uploadedId;
+            if (!$('#editOriginName').value.trim()) {
+                $('#editOriginName').value = file.name;
+            }
+            showMessage('临时文件上传成功，请继续保存文件详情', 'success');
+        } catch (error) {
+            showMessage(error.message, 'error');
+        } finally {
+            setLoading(false);
+        }
     }
 
-    function openEditModal(user) {
-        $('#editId').value = user.id || '';
-        $('#editUsername').value = user.username || '';
-        $('#editEmail').value = user.email || '';
-        $('#editPhone').value = user.phone || '';
-        $('#editAvatar').value = user.avatar || '';
-        $('#editRoleUser').checked = Array.isArray(user.roles) && user.roles.includes('USER');
-        $('#editRoleAdmin').checked = Array.isArray(user.roles) && user.roles.includes('ADMIN');
-        editModal.classList.add('show');
-    }
-
-    function closeEditModal() {
-        editModal.classList.remove('show');
-    }
-
-    async function saveUser(event) {
+    async function saveFile(event) {
         event.preventDefault();
-        const roles = [];
-        if ($('#editRoleUser').checked) {
-            roles.push('USER');
-        }
-        if ($('#editRoleAdmin').checked) {
-            roles.push('ADMIN');
-        }
-        if (roles.length === 0) {
-            showMessage('请至少选择一个角色', 'error');
+        const uploadedFileId = $('#uploadedFileId').value;
+        if (modalMode === 'create' && !uploadedFileId) {
+            showMessage('请先上传文件', 'error');
             return;
         }
-
+        const payload = {
+            id: modalMode === 'create' ? uploadedFileId : $('#editId').value,
+            fileId: modalMode === 'edit' ? uploadedFileId : '',
+            originName: $('#editOriginName').value.trim(),
+            bizType: $('#editBizType').value.trim()
+        };
         try {
             setLoading(true);
-            await apiPost('/user/manager/batchSave', {
+            await apiPost('/file/manager/batchSave', modalMode === 'create'
+                ? { addedData: [payload], modifyData: [], removeData: [] }
+                : { addedData: [], modifyData: [payload], removeData: [] });
+            closeFileModal();
+            showMessage(modalMode === 'create' ? '文件详情已创建' : '文件详情已更新', 'success');
+            await loadFiles(currentPage);
+        } catch (error) {
+            showMessage(error.message, 'error');
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function deleteFile(file) {
+        if (!confirm(`确认删除文件「${file.originName || file.fileName || file.id}」吗？`)) {
+            return;
+        }
+        try {
+            setLoading(true);
+            await apiPost('/file/manager/batchSave', {
                 addedData: [],
-                modifyData: [{
-                    id: $('#editId').value,
-                    username: $('#editUsername').value.trim(),
-                    email: $('#editEmail').value.trim(),
-                    phone: $('#editPhone').value.trim(),
-                    avatar: $('#editAvatar').value.trim(),
-                    roles
-                }],
-                removeData: []
-            });
-            closeEditModal();
-            showMessage('用户信息已更新', 'success');
-            await loadUsers(currentPage);
-        } catch (error) {
-            showMessage(error.message, 'error');
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    async function deleteUser(user) {
-        if (!confirm(`确认删除用户「${user.username || user.userAccount || user.id}」吗？`)) {
-            return;
-        }
-        try {
-            setLoading(true);
-            await apiPost('/user/manager/batchSave', {
                 modifyData: [],
-                removeData: [{ id: user.id }]
+                removeData: [{ id: file.id }]
             });
-            showMessage('用户已删除', 'success');
-            await loadUsers(currentPage);
-        } catch (error) {
-            showMessage(error.message, 'error');
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    async function changeStatus(user) {
-        const nextStatus = user.status === 'BAN' ? 'ACTIVE' : 'BAN';
-        const actionText = nextStatus === 'BAN' ? '封禁' : '解封';
-        if (!confirm(`确认${actionText}用户「${user.username || user.userAccount || user.id}」吗？`)) {
-            return;
-        }
-        try {
-            setLoading(true);
-            await apiPost('/user/manager/changeStatus', {
-                id: user.id,
-                status: nextStatus
-            });
-            showMessage(`用户已${actionText}`, 'success');
-            await loadUsers(currentPage);
+            showMessage('文件已删除', 'success');
+            await loadFiles(currentPage);
         } catch (error) {
             showMessage(error.message, 'error');
         } finally {
@@ -921,28 +1017,66 @@
         if (!button) {
             return;
         }
-        const user = findUser(button.dataset.id);
-        if (!user) {
-            showMessage('用户数据不存在，请刷新后重试', 'error');
+        const file = findFile(button.dataset.id);
+        if (!file) {
+            showMessage('文件数据不存在，请刷新后重试', 'error');
             return;
         }
         if (button.dataset.action === 'edit') {
-            openEditModal(user);
+            openEditModal(file);
+        } else if (button.dataset.action === 'preview') {
+            previewImage(file);
         } else if (button.dataset.action === 'delete') {
-            deleteUser(user);
-        } else if (button.dataset.action === 'status') {
-            changeStatus(user);
+            deleteFile(file);
         }
     }
 
     function resetFilters() {
-        $('#filterAccount').value = '';
-        $('#filterUsername').value = '';
-        $('#filterEmail').value = '';
-        $('#filterPhone').value = '';
+        $('#filterOriginName').value = '';
+        $('#filterStorageType').value = '';
+        $('#filterBucket').value = '';
+        $('#filterObjectKey').value = '';
+        $('#filterUserId').value = '';
+        $('#filterBizType').value = '';
+        $('#filterBizId').value = '';
         $('#filterStatus').value = '';
-        $('#filterRole').value = '';
-        loadUsers(1);
+        $('#filterIsTemp').value = '';
+        loadFiles(1);
+    }
+
+    function formatTime(value) {
+        if (!value) {
+            return '-';
+        }
+        return String(value).replace('T', ' ').slice(0, 19);
+    }
+
+    function formatFileSize(value) {
+        const bytes = Number(value || 0);
+        if (!bytes) {
+            return '0 B';
+        }
+        const units = ['B', 'KB', 'MB', 'GB'];
+        let size = bytes;
+        let unitIndex = 0;
+        while (size >= 1024 && unitIndex < units.length - 1) {
+            size /= 1024;
+            unitIndex += 1;
+        }
+        return `${size.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#39;');
+    }
+
+    function escapeAttribute(value) {
+        return escapeHtml(value).replaceAll('`', '&#96;');
     }
 
     function logout() {
@@ -974,34 +1108,43 @@
             window.location.href = 'login.html';
             return false;
         }
-        $('#userSummary').textContent = `${currentUser.username || currentUser.userAccount || '管理员'}，可维护已有用户资料、角色和状态。`;
+        $('#userSummary').textContent = `${currentUser.username || currentUser.userAccount || '管理员'}，可上传临时文件并维护文件元数据。`;
         if (!hasRole(currentUser, 'ADMIN')) {
             $('#managerContent').style.display = 'none';
             $('#managerTable').style.display = 'none';
-            showMessage('当前用户无权访问用户管理页面，请返回对话页面或重新登录管理员账号。', 'error');
+            $('#createFileBtn').style.display = 'none';
+            showMessage('当前用户无权访问文件管理页面，请返回对话页面或重新登录管理员账号。', 'error');
             return false;
         }
         return true;
     }
 
-    $('#searchBtn').addEventListener('click', () => loadUsers(1));
+    $('#searchBtn').addEventListener('click', () => loadFiles(1));
     $('#resetBtn').addEventListener('click', resetFilters);
+    $('#createFileBtn').addEventListener('click', openCreateModal);
+    $('#uploadFileBtn').addEventListener('click', uploadSelectedFile);
+    $('#fileForm').addEventListener('submit', saveFile);
+    $('#cancelFileBtn').addEventListener('click', closeFileModal);
     prevPageBtn.addEventListener('click', () => {
         if (currentPage > 1) {
-            loadUsers(currentPage - 1);
+            loadFiles(currentPage - 1);
         }
     });
     nextPageBtn.addEventListener('click', () => {
         if (currentPage < totalPages) {
-            loadUsers(currentPage + 1);
+            loadFiles(currentPage + 1);
         }
     });
     tableBody.addEventListener('click', handleTableClick);
-    $('#editForm').addEventListener('submit', saveUser);
-    $('#cancelEditBtn').addEventListener('click', closeEditModal);
-    editModal.addEventListener('click', (event) => {
-        if (event.target === editModal) {
-            closeEditModal();
+    fileModal.addEventListener('click', (event) => {
+        if (event.target === fileModal) {
+            closeFileModal();
+        }
+    });
+    $('#closePreviewBtn').addEventListener('click', closePreviewModal);
+    previewModal.addEventListener('click', (event) => {
+        if (event.target === previewModal) {
+            closePreviewModal();
         }
     });
     $('#logoutBtn').addEventListener('click', logout);
@@ -1009,7 +1152,7 @@
 
     loadTheme();
     if (guardPage()) {
-        loadUsers(1);
+        loadFiles(1);
     }
 })();
 </script>
