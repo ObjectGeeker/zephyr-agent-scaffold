@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>微信扫码登录</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .card {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+            padding: 40px;
+            max-width: 420px;
+            width: 100%;
+            text-align: center;
+        }
+        h1 {
+            font-size: 24px;
+            color: #1a1a2e;
+            margin-bottom: 8px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 32px;
+        }
+        .qrcode-wrap {
+            width: 220px;
+            height: 220px;
+            margin: 0 auto 24px;
+            border: 2px solid #eee;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: #fafafa;
+        }
+        .qrcode-wrap img {
+            width: 200px;
+            height: 200px;
+        }
+        .qrcode-wrap .loading {
+            color: #999;
+            font-size: 14px;
+        }
+        .status {
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+        .status.pending { background: #fff3cd; color: #856404; }
+        .status.waiting { background: #cce5ff; color: #004085; }
+        .status.confirmed { background: #d4edda; color: #155724; }
+        .status.expired { background: #f8d7da; color: #721c24; }
+        .openid {
+            font-size: 12px;
+            color: #888;
+            word-break: break-all;
+            margin-top: 8px;
+        }
+        .btn {
+            background: #667eea;
+            color: #fff;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn:hover { background: #5a6fd6; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .hint {
+            margin-top: 24px;
+            font-size: 12px;
+            color: #aaa;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>微信扫码登录</h1>
+    <p class="subtitle">请使用微信扫描下方二维码</p>
+
+    <div class="qrcode-wrap" id="qrcodeWrap">
+        <span class="loading">加载中...</span>
+    </div>
+
+    <div class="status pending" id="statusBox">正在生成二维码...</div>
+
+    <button class="btn" id="refreshBtn" style="display:none" onclick="startLogin()">重新获取二维码</button>
+
+    <p class="hint">
+        扫码后公众号将回复验证码，请在微信中回复该数字完成登录。<br>
+        登录成功后将自动创建或绑定应用登录会话。
+    </p>
+</div>
+
+<script>
+    const API_BASE = '/api';
+    const STORAGE_USER = 'zephyr_auth_user';
+    let ticketId = null;
+    let pollTimer = null;
+
+    const statusText = {
+        PENDING: '等待扫码...',
+        WAITING_CODE: '已扫码，请在公众号回复验证码',
+        CONFIRMED: '登录成功！',
+        EXPIRED: '二维码已过期'
+    };
+
+    async function startLogin() {
+        clearPoll();
+        document.getElementById('refreshBtn').style.display = 'none';
+        setStatus('pending', '正在生成二维码...');
+        document.getElementById('qrcodeWrap').innerHTML = '<span class="loading">加载中...</span>';
+
+        try {
+            const res = await fetch(`${API_BASE}/auth/wechat/qrcode`, { method: 'POST' });
+            const json = await res.json();
+            if (json.code !== 200) {
+                setStatus('expired', json.message || '创建二维码失败');
+                document.getElementById('refreshBtn').style.display = 'inline-block';
+                return;
+            }
+            const data = json.data;
+            ticketId = data.ticketId;
+            document.getElementById('qrcodeWrap').innerHTML =
+                `<img src="${data.qrCodeUrl}" alt="微信登录二维码">`;
+            setStatus('pending', statusText.PENDING);
+            startPoll();
+        } catch (e) {
+            setStatus('expired', '网络错误，请重试');
+            document.getElementById('refreshBtn').style.display = 'inline-block';
+        }
+    }
+
+    function startPoll() {
+        pollTimer = setInterval(pollStatus, 2000);
+    }
+
+    function clearPoll() {
+        if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+        }
+    }
+
+    async function pollStatus() {
+        if (!ticketId) return;
+        try {
+            const res = await fetch(`${API_BASE}/auth/wechat/qrcode/${ticketId}`);
+            const json = await res.json();
+            if (json.code !== 200) return;
+            const data = json.data;
+            const status = data.status;
+
+            if (status === 'PENDING') {
+                setStatus('pending', statusText.PENDING);
+            } else if (status === 'WAITING_CODE') {
+                setStatus('waiting', statusText.WAITING_CODE);
+            } else if (status === 'CONFIRMED') {
+                clearPoll();
+                setStatus('waiting', '扫码已确认，正在登录...');
+                await loginOrRegisterByWxOpenid(data.wxOpenid);
+            } else if (status === 'EXPIRED') {
+                clearPoll();
+                setStatus('expired', statusText.EXPIRED);
+                document.getElementById('refreshBtn').style.display = 'inline-block';
+            }
+        } catch (e) {
+            // 轮询失败时静默重试
+        }
+    }
+
+    async function loginOrRegisterByWxOpenid(wxOpenid) {
+        try {
+            const res = await fetch(`${API_BASE}/auth/wechat/login-or-register`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ wxOpenid })
+            });
+            const json = await res.json();
+            if (json.code !== 200) {
+                setStatus('expired', json.message || '登录失败，请重试');
+                document.getElementById('refreshBtn').style.display = 'inline-block';
+                return;
+            }
+
+            const user = json.data;
+            localStorage.setItem(STORAGE_USER, JSON.stringify(user));
+            setStatus('confirmed', statusText.CONFIRMED +
+                `<div class="openid">用户ID: ${user.id}</div>` +
+                `<div class="openid">账号: ${user.userAccount || '-'}</div>` +
+                `<div class="openid">用户名: ${user.username || '-'}</div>` +
+                `<div class="openid">正在进入对话页面...</div>`);
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 800);
+        } catch (e) {
+            setStatus('expired', '登录失败，请重试');
+            document.getElementById('refreshBtn').style.display = 'inline-block';
+        }
+    }
+
+    function setStatus(type, html) {
+        const box = document.getElementById('statusBox');
+        box.className = 'status ' + type;
+        box.innerHTML = html;
+    }
+
+    startLogin();
+</script>
+</body>
+</html>

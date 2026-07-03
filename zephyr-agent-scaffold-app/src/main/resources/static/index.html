@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatGPT Web — Zephyr Agent</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --primary: #10a37f;
+            --primary-hover: #0d8c6d;
+            --sidebar-bg: #202123;
+            --sidebar-hover: #2a2b32;
+            --sidebar-active: #343541;
+            --sidebar-text: #ececf1;
+            --sidebar-muted: #8e8ea0;
+            --main-bg: #f7f7f8;
+            --main-surface: #ffffff;
+            --text-main: #353740;
+            --text-muted: #6e6e80;
+            --border: #e5e5e5;
+            --user-avatar: #5436da;
+            --shadow: 0 0 15px rgba(0,0,0,0.08);
+            --chat-max-width: 768px;
+        }
+
+        [data-theme="dark"] {
+            --main-bg: #343541;
+            --main-surface: #444654;
+            --text-main: #ececf1;
+            --text-muted: #acacbe;
+            --border: #565869;
+            --shadow: 0 0 15px rgba(0,0,0,0.3);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html, body {
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        body {
+            display: flex;
+            background: var(--main-bg);
+            color: var(--text-main);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.4); border-radius: 3px; }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-20px);
+            background: #333;
+            color: #fff;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+            z-index: 9999;
+        }
+        .toast.show { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
+
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: var(--sidebar-bg);
+            color: var(--sidebar-text);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            transition: transform 0.3s, width 0.3s;
+            z-index: 100;
+        }
+        .sidebar.hidden { transform: translateX(-100%); width: 0; overflow: hidden; }
+
+        .sidebar-top { padding: 12px; }
+        .btn-new-chat {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            padding: 12px 14px;
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            color: var(--sidebar-text);
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-new-chat:hover { background: var(--sidebar-hover); }
+
+        .sidebar-history {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 12px;
+        }
+        .history-group { margin-bottom: 16px; }
+        .history-group-title {
+            font-size: 12px;
+            color: var(--sidebar-muted);
+            padding: 4px 8px;
+            margin-bottom: 4px;
+        }
+        .history-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 8px 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            color: var(--sidebar-text);
+            transition: background 0.2s;
+        }
+        .history-item:hover { background: var(--sidebar-hover); }
+        .history-item.active { background: var(--sidebar-active); }
+        .history-item-icon { flex-shrink: 0; opacity: 0.7; }
+        .history-item-title {
+            flex: 1;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .history-item-delete {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--sidebar-muted);
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s, background 0.2s, color 0.2s;
+        }
+        .history-item:hover .history-item-delete,
+        .history-item.active .history-item-delete { opacity: 1; }
+        .history-item-delete:hover {
+            background: rgba(255,255,255,0.1);
+            color: #ff6b6b;
+        }
+
+        .sidebar-bottom {
+            padding: 12px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .sidebar-bottom-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            color: var(--sidebar-text);
+            transition: background 0.2s;
+        }
+        .sidebar-bottom-item:hover { background: var(--sidebar-hover); }
+
+        /* Main */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            position: relative;
+        }
+
+        .main-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border);
+            background: var(--main-surface);
+            flex-shrink: 0;
+        }
+        .main-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .btn-menu {
+            display: none;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-main);
+            padding: 4px;
+        }
+        .main-title { font-size: 16px; font-weight: 600; }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .model-select-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+        .model-select-wrap select {
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--main-surface);
+            color: var(--text-main);
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .btn-settings-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-main);
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .btn-settings-header:hover { background: var(--main-bg); }
+
+        /* Messages */
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 0;
+        }
+        .messages-inner {
+            max-width: var(--chat-max-width);
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        .welcome {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+        .welcome h2 { font-size: 24px; margin-bottom: 8px; color: var(--text-main); }
+
+        .message {
+            display: flex;
+            gap: 16px;
+            padding: 20px 0;
+            animation: fadeIn 0.3s;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+        .message-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 600;
+            flex-shrink: 0;
+            color: #fff;
+        }
+        .message-avatar.user { background: var(--user-avatar); }
+        .message-avatar.assistant { background: var(--primary); }
+
+        .message-body { flex: 1; min-width: 0; }
+        .message-content {
+            line-height: 1.7;
+            font-size: 15px;
+            word-break: break-word;
+        }
+        .message-content p { margin-bottom: 12px; }
+        .message-content p:last-child { margin-bottom: 0; }
+        .message-content pre {
+            background: rgba(0,0,0,0.06);
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 8px 0;
+            font-size: 13px;
+        }
+        [data-theme="dark"] .message-content pre { background: rgba(0,0,0,0.3); }
+        .message-content code {
+            background: rgba(0,0,0,0.06);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        [data-theme="dark"] .message-content code { background: rgba(0,0,0,0.3); }
+        .message-content ul, .message-content ol { margin: 8px 0; padding-left: 24px; }
+
+        .message-actions {
+            display: flex;
+            gap: 4px;
+            margin-top: 8px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .message:hover .message-actions { opacity: 1; }
+        .msg-action-btn {
+            background: none;
+            border: none;
+            padding: 6px;
+            border-radius: 6px;
+            cursor: pointer;
+            color: var(--text-muted);
+            transition: background 0.2s, color 0.2s;
+        }
+        .msg-action-btn:hover { background: var(--main-bg); color: var(--text-main); }
+        .msg-action-btn.active-like { color: var(--primary); }
+        .msg-action-btn.active-dislike { color: #e74c3c; }
+
+        .tool-card {
+            padding: 10px 14px;
+            background: var(--main-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+        .tool-card-name { font-weight: 500; color: var(--text-main); margin-bottom: 4px; }
+        .tool-card-response {
+            white-space: pre-wrap;
+            max-height: 120px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+
+        /* Input area */
+        .input-area {
+            padding: 16px 20px 24px;
+            flex-shrink: 0;
+        }
+        .input-wrapper {
+            max-width: var(--chat-max-width);
+            margin: 0 auto;
+            background: var(--main-surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+        .input-wrapper:focus-within { border-color: var(--primary); }
+
+        #userInput {
+            width: 100%;
+            min-height: 52px;
+            max-height: 200px;
+            padding: 14px 16px;
+            border: none;
+            outline: none;
+            resize: none;
+            font-size: 15px;
+            line-height: 1.5;
+            background: transparent;
+            color: var(--text-main);
+            font-family: inherit;
+        }
+
+        .input-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            border-top: 1px solid var(--border);
+        }
+        .input-toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .toolbar-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: none;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            color: var(--text-muted);
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+        .toolbar-btn:hover { background: var(--main-bg); color: var(--text-main); }
+
+        .btn-send {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-send:hover { background: var(--primary-hover); }
+        .btn-send:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Settings modal */
+        .settings-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 200;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.25s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .settings-overlay.open { opacity: 1; visibility: visible; }
+
+        .settings-panel {
+            width: 100%;
+            max-width: 480px;
+            max-height: min(90vh, 720px);
+            background: var(--main-surface);
+            border-radius: 12px;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.2);
+            z-index: 201;
+            display: flex;
+            flex-direction: column;
+            transform: scale(0.95) translateY(12px);
+            opacity: 0;
+            transition: transform 0.25s, opacity 0.25s;
+        }
+        .settings-overlay.open .settings-panel {
+            transform: scale(1) translateY(0);
+            opacity: 1;
+        }
+
+        .settings-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+        }
+        .settings-header h2 { font-size: 18px; font-weight: 600; }
+        .btn-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-muted);
+            padding: 4px;
+            border-radius: 6px;
+        }
+        .btn-close:hover { background: var(--main-bg); color: var(--text-main); }
+
+        .settings-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+        }
+        .settings-section { margin-bottom: 28px; }
+        .settings-section h3 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text-main);
+        }
+        .form-group { margin-bottom: 16px; }
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            background: var(--main-bg);
+            color: var(--text-main);
+            font-family: inherit;
+        }
+        .form-group textarea { min-height: 100px; resize: vertical; }
+        .form-group input:focus,
+        .form-group textarea:focus { outline: none; border-color: var(--primary); }
+
+        .api-key-wrap { position: relative; }
+        .api-key-wrap input { padding-right: 40px; }
+        .btn-toggle-key {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-muted);
+            padding: 4px;
+        }
+
+        .settings-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            padding: 16px 24px;
+            border-top: 1px solid var(--border);
+        }
+        .btn-cancel {
+            padding: 10px 20px;
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            color: var(--text-main);
+        }
+        .btn-cancel:hover { background: var(--main-bg); }
+        .btn-save {
+            padding: 10px 20px;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .btn-save:hover { background: var(--primary-hover); }
+
+        /* Typing indicator */
+        .typing-dots {
+            display: inline-flex;
+            gap: 4px;
+            padding: 4px 0;
+        }
+        .typing-dots span {
+            width: 8px;
+            height: 8px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar { position: fixed; left: 0; top: 0; height: 100%; }
+            .sidebar.hidden { transform: translateX(-100%); }
+            .btn-menu { display: block; }
+            .settings-overlay { padding: 16px; }
+            .settings-panel { max-height: 92vh; }
+        }
+    </style>
+</head>
+<body data-theme="light">
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-top">
+        <button class="btn-new-chat" id="btnNewChat">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            新建对话
+        </button>
+    </div>
+    <div class="sidebar-history" id="sidebarHistory"></div>
+    <div class="sidebar-bottom">
+        <div class="sidebar-bottom-item" id="btnOpenSettings">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            设置
+        </div>
+        <div class="sidebar-bottom-item" id="btnToggleTheme">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="themeIcon"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            <span id="themeLabel">主题切换</span>
+        </div>
+    </div>
+</aside>
+
+<!-- Main -->
+<main class="main">
+    <header class="main-header">
+        <div class="main-header-left">
+            <button class="btn-menu" id="btnMenu" aria-label="菜单">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <span class="main-title">ChatGPT Web</span>
+        </div>
+        <div class="header-controls">
+            <div class="model-select-wrap">
+                <label for="agentSelect">Agent:</label>
+                <select id="agentSelect"></select>
+            </div>
+            <div class="model-select-wrap">
+                <label for="modelSelect">模型:</label>
+                <select id="modelSelect"></select>
+            </div>
+            <button class="btn-settings-header" id="btnSettingsHeader">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                设置
+            </button>
+        </div>
+    </header>
+
+    <div class="messages" id="messages">
+        <div class="messages-inner" id="messagesInner">
+            <div class="welcome" id="welcome">
+                <h2>你好，有什么可以帮你的？</h2>
+                <p>开始一段新对话吧</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="input-area">
+        <div class="input-wrapper">
+            <textarea id="userInput" placeholder="输入消息..." rows="1"></textarea>
+            <div class="input-toolbar">
+                <div class="input-toolbar-left">
+                    <button class="toolbar-btn" id="btnClearChat" title="清空对话">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        清空对话
+                    </button>
+                </div>
+                <button class="btn-send" id="btnSend" disabled>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    发送
+                </button>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- Settings modal -->
+<div class="settings-overlay" id="settingsOverlay">
+<aside class="settings-panel" id="settingsPanel" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="settings-header">
+        <h2 id="settingsTitle">设置</h2>
+        <button class="btn-close" id="btnCloseSettings" aria-label="关闭">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+    </div>
+    <div class="settings-body">
+        <div class="settings-section">
+            <h3>基础配置</h3>
+            <div class="form-group">
+                <label for="settingBaseUrl">Base URL</label>
+                <input type="text" id="settingBaseUrl" placeholder="https://api.openai.com/v1">
+            </div>
+            <div class="form-group">
+                <label for="settingApiKey">API Key</label>
+                <div class="api-key-wrap">
+                    <input type="password" id="settingApiKey" placeholder="sk-...">
+                    <button class="btn-toggle-key" id="btnToggleKey" type="button" aria-label="显示/隐藏">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="settingModels">模型列表（每行一个）</label>
+                <textarea id="settingModels" placeholder="gpt-3.5-turbo&#10;gpt-4&#10;gpt-4-turbo"></textarea>
+            </div>
+        </div>
+        <div class="settings-section">
+            <h3>其他</h3>
+            <div class="form-group">
+                <label for="settingTemperature">Temperature</label>
+                <input type="number" id="settingTemperature" min="0" max="2" step="0.1" value="0.7">
+            </div>
+        </div>
+    </div>
+    <div class="settings-footer">
+        <button class="btn-cancel" id="btnCancelSettings">取消</button>
+        <button class="btn-save" id="btnSaveSettings">保存</button>
+    </div>
+</aside>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    // ============================================================
+    //  Constants & Storage Keys
+    // ============================================================
+    const STORAGE_SESSIONS = 'chat_sessions';
+    const STORAGE_SETTINGS = 'chat_settings';
+    const STORAGE_THEME = 'chat_theme';
+
+    const DEFAULT_SETTINGS = {
+        baseUrl: '',
+        apiKey: '',
+        models: ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo'],
+        temperature: 0.7,
+        selectedModel: 'gpt-3.5-turbo',
+        selectedAgentId: ''
+    };
+
+    // ============================================================
+    //  State
+    // ============================================================
+    let sessions = [];
+    let currentSessionId = null;
+    let settings = { ...DEFAULT_SETTINGS };
+    let agents = [];
+    let isResponding = false;
+    let abortController = null;
+    let settingsDraft = null;
+
+    // ============================================================
+    //  DOM References
+    // ============================================================
+    const $ = (sel) => document.querySelector(sel);
+    const sidebar = $('#sidebar');
+    const sidebarHistory = $('#sidebarHistory');
+    const messagesInner = $('#messagesInner');
+    const welcome = $('#welcome');
+    const userInput = $('#userInput');
+    const btnSend = $('#btnSend');
+    const agentSelect = $('#agentSelect');
+    const modelSelect = $('#modelSelect');
+    const settingsPanel = $('#settingsPanel');
+    const settingsOverlay = $('#settingsOverlay');
+
+    // ============================================================
+    //  Utilities
+    // ============================================================
+    function generateId() {
+        return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    }
+
+    function showToast(msg) {
+        const toast = $('#toast');
+        toast.textContent = msg;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    function getCurrentSession() {
+        return sessions.find(s => s.id === currentSessionId);
+    }
+
+    // ============================================================
+    //  LocalStorage
+    // ============================================================
+    function loadSessions() {
+        try {
+            const raw = localStorage.getItem(STORAGE_SESSIONS);
+            sessions = raw ? JSON.parse(raw) : [];
+        } catch { sessions = []; }
+    }
+
+    function saveSessions() {
+        localStorage.setItem(STORAGE_SESSIONS, JSON.stringify(sessions));
+    }
+
+    function loadSettings() {
+        try {
+            const raw = localStorage.getItem(STORAGE_SETTINGS);
+            settings = raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : { ...DEFAULT_SETTINGS };
+        } catch { settings = { ...DEFAULT_SETTINGS }; }
+    }
+
+    function saveSettings() {
+        localStorage.setItem(STORAGE_SETTINGS, JSON.stringify(settings));
+    }
+
+    function loadTheme() {
+        const theme = localStorage.getItem(STORAGE_THEME) || 'light';
+        document.body.setAttribute('data-theme', theme);
+        updateThemeLabel(theme);
+    }
+
+    function saveTheme(theme) {
+        localStorage.setItem(STORAGE_THEME, theme);
+        document.body.setAttribute('data-theme', theme);
+        updateThemeLabel(theme);
+    }
+
+    function updateThemeLabel(theme) {
+        const label = $('#themeLabel');
+        if (label) label.textContent = theme === 'dark' ? '切换亮色' : '主题切换';
+    }
+
+    // ============================================================
+    //  History Grouping
+    // ============================================================
+    function groupSessionsByDate() {
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const yesterdayStart = todayStart - 86400000;
+
+        const groups = { today: [], yesterday: [], earlier: [] };
+        const sorted = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt);
+
+        for (const s of sorted) {
+            if (s.updatedAt >= todayStart) groups.today.push(s);
+            else if (s.updatedAt >= yesterdayStart) groups.yesterday.push(s);
+            else groups.earlier.push(s);
+        }
+        return groups;
+    }
+
+    function renderSidebar() {
+        const groups = groupSessionsByDate();
+        const labels = { today: '今天', yesterday: '昨天', earlier: '更早' };
+        let html = '';
+
+        for (const [key, label] of Object.entries(labels)) {
+            const items = groups[key];
+            if (!items.length) continue;
+            html += `<div class="history-group"><div class="history-group-title">${label}</div>`;
+            for (const s of items) {
+                const active = s.id === currentSessionId ? ' active' : '';
+                const title = escapeHtml(s.title || '新对话');
+                html += `<div class="history-item${active}" data-id="${s.id}">
+                    <svg class="history-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    <span class="history-item-title">${title}</span>
+                    <button class="history-item-delete" data-id="${s.id}" title="删除对话" aria-label="删除对话">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                </div>`;
+            }
+            html += '</div>';
+        }
+        sidebarHistory.innerHTML = html || '<div style="padding:12px;color:var(--sidebar-muted);font-size:13px;">暂无历史对话</div>';
+
+        sidebarHistory.querySelectorAll('.history-item').forEach(el => {
+            el.addEventListener('click', () => switchSession(el.dataset.id));
+        });
+        sidebarHistory.querySelectorAll('.history-item-delete').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteSession(btn.dataset.id);
+            });
+        });
+    }
+
+    // ============================================================
+    //  Session Management
+    // ============================================================
+    function createSession() {
+        const session = {
+            id: generateId(),
+            title: '新对话',
+            messages: [],
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+        };
+        sessions.unshift(session);
+        currentSessionId = session.id;
+        saveSessions();
+        renderSidebar();
+        renderMessages();
+        userInput.focus();
+        if (window.innerWidth <= 768) sidebar.classList.add('hidden');
+    }
+
+    function switchSession(id) {
+        currentSessionId = id;
+        renderSidebar();
+        renderMessages();
+        if (window.innerWidth <= 768) sidebar.classList.add('hidden');
+    }
+
+    function deleteSession(id) {
+        const idx = sessions.findIndex(s => s.id === id);
+        if (idx === -1) return;
+
+        sessions.splice(idx, 1);
+        saveSessions();
+
+        if (currentSessionId === id) {
+            if (sessions.length) {
+                currentSessionId = sessions[0].id;
+            } else {
+                currentSessionId = null;
+            }
+        }
+
+        renderSidebar();
+        renderMessages();
+        showToast('对话已删除');
+    }
+
+    function clearCurrentChat() {
+        const session = getCurrentSession();
+        if (!session) return;
+        session.messages = [];
+        session.title = '新对话';
+        session.updatedAt = Date.now();
+        saveSessions();
+        renderSidebar();
+        renderMessages();
+        showToast('对话已清空');
+    }
+
+    // ============================================================
+    //  Message Rendering
+    // ============================================================
+    function renderMarkdown(text) {
+        if (!text) return '';
+        try {
+            return marked.parse(text, { breaks: true });
+        } catch {
+            return escapeHtml(text);
+        }
+    }
+
+    function renderMessages() {
+        const session = getCurrentSession();
+        if (!session || !session.messages.length) {
+            welcome.style.display = 'block';
+            messagesInner.querySelectorAll('.message').forEach(el => el.remove());
+            return;
+        }
+        welcome.style.display = 'none';
+        messagesInner.querySelectorAll('.message').forEach(el => el.remove());
+
+        session.messages.forEach((msg, idx) => {
+            appendMessageDOM(msg.role, msg.content, msg.feedback, idx);
+        });
+        scrollToBottom();
+    }
+
+    function appendMessageDOM(role, content, feedback, idx) {
+        const isUser = role === 'user';
+        const div = document.createElement('div');
+        div.className = 'message';
+        div.dataset.idx = idx;
+
+        const avatarText = isUser ? '你' : 'AI';
+        const avatarClass = isUser ? 'user' : 'assistant';
+
+        let actionsHtml = '';
+        if (!isUser) {
+            actionsHtml = createMessageActionsHtml(feedback);
+        }
+
+        const contentHtml = isUser ? escapeHtml(content) : renderMarkdown(content);
+
+        div.innerHTML = `
+            <div class="message-avatar ${avatarClass}">${avatarText}</div>
+            <div class="message-body">
+                <div class="message-content" data-raw="${escapeHtml(content)}">${contentHtml}</div>
+                ${actionsHtml}
+            </div>`;
+
+        messagesInner.appendChild(div);
+
+        bindMessageActions(div, idx);
+
+        return div.querySelector('.message-content');
+    }
+
+    function createMessageActionsHtml(feedback) {
+        const likeActive = feedback === 'like' ? ' active-like' : '';
+        const dislikeActive = feedback === 'dislike' ? ' active-dislike' : '';
+        return `<div class="message-actions">
+            <button class="msg-action-btn" data-action="copy" title="复制">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+            <button class="msg-action-btn${likeActive}" data-action="like" title="点赞">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+            </button>
+            <button class="msg-action-btn${dislikeActive}" data-action="dislike" title="点踩">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>
+            </button>
+        </div>`;
+    }
+
+    function bindMessageActions(messageEl, idx) {
+        messageEl.querySelectorAll('.msg-action-btn').forEach(btn => {
+            btn.addEventListener('click', () => handleMessageAction(btn.dataset.action, idx, messageEl));
+        });
+    }
+
+    function handleMessageAction(action, idx, msgEl) {
+        const session = getCurrentSession();
+        if (!session) return;
+        const msg = session.messages[idx];
+        if (!msg) return;
+
+        if (action === 'copy') {
+            const text = msg.content || '';
+            navigator.clipboard.writeText(text).then(() => showToast('已复制'));
+        } else if (action === 'like') {
+            msg.feedback = msg.feedback === 'like' ? null : 'like';
+            saveSessions();
+            renderMessages();
+        } else if (action === 'dislike') {
+            msg.feedback = msg.feedback === 'dislike' ? null : 'dislike';
+            saveSessions();
+            renderMessages();
+        }
+    }
+
+    function scrollToBottom() {
+        const container = $('#messages');
+        requestAnimationFrame(() => { container.scrollTop = container.scrollHeight; });
+    }
+
+    // ============================================================
+    //  API Layer
+    // ============================================================
+    async function fetchAgentList() {
+        try {
+            const res = await fetch('agent/findAgentList', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const json = await res.json();
+            agents = json.data || [];
+            renderAgentSelect();
+        } catch (err) {
+            console.warn('加载 Agent 列表失败:', err);
+            agents = [];
+            renderAgentSelect();
+        }
+    }
+
+    function renderAgentSelect() {
+        agentSelect.innerHTML = '';
+        if (!agents.length) {
+            agentSelect.innerHTML = '<option value="">默认 Agent</option>';
+            return;
+        }
+        agents.forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = a.agentId;
+            opt.textContent = a.agentName || a.agentId;
+            opt.dataset.agentName = a.agentName || '';
+            if (a.agentId === settings.selectedAgentId) opt.selected = true;
+            agentSelect.appendChild(opt);
+        });
+        if (!settings.selectedAgentId && agents.length) {
+            settings.selectedAgentId = agents[0].agentId;
+            agentSelect.value = agents[0].agentId;
+        }
+    }
+
+    function renderModelSelect() {
+        modelSelect.innerHTML = '';
+        const models = settings.models.length ? settings.models : DEFAULT_SETTINGS.models;
+        models.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = m;
+            if (m === settings.selectedModel) opt.selected = true;
+            modelSelect.appendChild(opt);
+        });
+    }
+
+    function getSelectedAgent() {
+        const opt = agentSelect.selectedOptions[0];
+        if (!opt) return { agentId: '', agentName: '' };
+        return {
+            agentId: opt.value,
+            agentName: opt.dataset.agentName || opt.textContent
+        };
+    }
+
+    async function readSSEStream(body, contentEl, toolsContainer) {
+        const reader = body.getReader();
+        const decoder = new TextDecoder();
+        let full = '';
+        let buf = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += decoder.decode(value, { stream: true });
+            const lines = buf.split('\n');
+            buf = lines.pop() || '';
+
+            for (const line of lines) {
+                if (!line.startsWith('data:')) continue;
+                const payload = line.slice(5).trim();
+                if (!payload || payload === '[DONE]') continue;
+
+                try {
+                    const resp = JSON.parse(payload);
+                    if (resp.type === 'AGENT_COMPLETE') continue;
+
+                    if (resp.type === 'assistant' && resp.content) {
+                        full += resp.content;
+                        contentEl.innerHTML = renderMarkdown(full);
+                        contentEl.dataset.raw = full;
+                        scrollToBottom();
+                    }
+
+                    if (resp.type === 'tool') {
+                        const card = document.createElement('div');
+                        card.className = 'tool-card';
+                        let cardHtml = '';
+                        if (resp.toolCallName) {
+                            cardHtml += `<div class="tool-card-name">🔧 ${escapeHtml(resp.toolCallName)}</div>`;
+                        }
+                        if (resp.toolCallResponse) {
+                            const respText = resp.toolCallResponse.substring(0, 500);
+                            cardHtml += `<div class="tool-card-response">${escapeHtml(respText)}</div>`;
+                        }
+                        card.innerHTML = cardHtml;
+                        toolsContainer.appendChild(card);
+                        scrollToBottom();
+                    }
+                } catch (e) {
+                    console.warn('SSE parse error:', e);
+                }
+            }
+        }
+        return full;
+    }
+
+    async function sendMessage() {
+        const text = userInput.value.trim();
+        if (!text || isResponding) return;
+
+        let session = getCurrentSession();
+        if (!session) {
+            createSession();
+            session = getCurrentSession();
+        }
+
+        session.messages.push({ role: 'user', content: text });
+        if (session.messages.length === 1) {
+            session.title = text.length > 20 ? text.substring(0, 20) + '...' : text;
+        }
+        session.updatedAt = Date.now();
+        saveSessions();
+        renderSidebar();
+
+        userInput.value = '';
+        userInput.style.height = 'auto';
+        updateSendButton();
+        welcome.style.display = 'none';
+
+        const userIdx = session.messages.length - 1;
+        appendMessageDOM('user', text, null, userIdx);
+
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'message';
+        msgDiv.innerHTML = `
+            <div class="message-avatar assistant">AI</div>
+            <div class="message-body">
+                <div class="tools-container"></div>
+                <div class="message-content"><div class="typing-dots"><span></span><span></span><span></span></div></div>
+                ${createMessageActionsHtml(null)}
+            </div>`;
+        messagesInner.appendChild(msgDiv);
+        const contentEl = msgDiv.querySelector('.message-content');
+        const toolsContainer = msgDiv.querySelector('.tools-container');
+        scrollToBottom();
+
+        const agent = getSelectedAgent();
+        const requestBody = {
+            message: text,
+            threadId: session.id,
+            agentId: agent.agentId,
+            agentName: agent.agentName,
+            model: modelSelect.value || settings.selectedModel,
+            apiKey: settings.apiKey || undefined,
+            baseUrl: settings.baseUrl || undefined
+        };
+
+        try {
+            isResponding = true;
+            btnSend.disabled = true;
+            abortController = new AbortController();
+
+            const response = await fetch('agent/stream', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody),
+                signal: abortController.signal
+            });
+
+            if (!response.ok) {
+                const errText = await response.text();
+                let errMsg = `HTTP ${response.status}`;
+                try { errMsg = JSON.parse(errText).message || errMsg; } catch {}
+                throw new Error(errMsg);
+            }
+
+            let finalText = '';
+            if (response.body) {
+                contentEl.innerHTML = '';
+                finalText = await readSSEStream(response.body, contentEl, toolsContainer);
+            }
+
+            session.messages.push({ role: 'assistant', content: finalText || '(无回复)' });
+            session.updatedAt = Date.now();
+            saveSessions();
+
+            const aiIdx = session.messages.length - 1;
+            msgDiv.dataset.idx = aiIdx;
+            contentEl.dataset.raw = finalText || '(无回复)';
+            bindMessageActions(msgDiv, aiIdx);
+
+        } catch (err) {
+            if (err.name === 'AbortError') return;
+            const errMsg = `请求失败: ${err.message}`;
+            contentEl.innerHTML = escapeHtml(errMsg);
+            session.messages.push({ role: 'assistant', content: errMsg });
+            saveSessions();
+        } finally {
+            isResponding = false;
+            abortController = null;
+            updateSendButton();
+            scrollToBottom();
+        }
+    }
+
+    // ============================================================
+    //  Settings Panel
+    // ============================================================
+    function openSettings() {
+        settingsDraft = {
+            baseUrl: settings.baseUrl,
+            apiKey: settings.apiKey,
+            models: settings.models.join('\n'),
+            temperature: settings.temperature
+        };
+        $('#settingBaseUrl').value = settingsDraft.baseUrl;
+        $('#settingApiKey').value = settingsDraft.apiKey;
+        $('#settingModels').value = settingsDraft.models;
+        $('#settingTemperature').value = settingsDraft.temperature;
+        settingsOverlay.classList.add('open');
+    }
+
+    function closeSettings() {
+        settingsOverlay.classList.remove('open');
+        settingsDraft = null;
+    }
+
+    function saveSettingsFromPanel() {
+        settings.baseUrl = $('#settingBaseUrl').value.trim();
+        settings.apiKey = $('#settingApiKey').value.trim();
+        const modelsText = $('#settingModels').value.trim();
+        settings.models = modelsText ? modelsText.split('\n').map(m => m.trim()).filter(Boolean) : DEFAULT_SETTINGS.models;
+        settings.temperature = parseFloat($('#settingTemperature').value) || 0.7;
+        settings.selectedModel = modelSelect.value || settings.models[0];
+        settings.selectedAgentId = agentSelect.value;
+        saveSettings();
+        renderModelSelect();
+        closeSettings();
+        showToast('设置已保存');
+    }
+
+    // ============================================================
+    //  UI Helpers
+    // ============================================================
+    function updateSendButton() {
+        btnSend.disabled = isResponding || !userInput.value.trim();
+    }
+
+    function autoResizeTextarea() {
+        userInput.style.height = 'auto';
+        userInput.style.height = Math.min(userInput.scrollHeight, 200) + 'px';
+    }
+
+    // ============================================================
+    //  Event Bindings
+    // ============================================================
+    function bindEvents() {
+        $('#btnNewChat').addEventListener('click', createSession);
+        $('#btnMenu').addEventListener('click', () => sidebar.classList.toggle('hidden'));
+        $('#btnOpenSettings').addEventListener('click', openSettings);
+        $('#btnSettingsHeader').addEventListener('click', openSettings);
+        $('#btnCloseSettings').addEventListener('click', closeSettings);
+        $('#btnCancelSettings').addEventListener('click', closeSettings);
+        $('#btnSaveSettings').addEventListener('click', saveSettingsFromPanel);
+        settingsOverlay.addEventListener('click', (e) => {
+            if (e.target === settingsOverlay) closeSettings();
+        });
+        settingsPanel.addEventListener('click', (e) => e.stopPropagation());
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && settingsOverlay.classList.contains('open')) {
+                closeSettings();
+            }
+        });
+
+        $('#btnToggleTheme').addEventListener('click', () => {
+            const current = document.body.getAttribute('data-theme');
+            saveTheme(current === 'dark' ? 'light' : 'dark');
+        });
+
+        $('#btnToggleKey').addEventListener('click', () => {
+            const input = $('#settingApiKey');
+            input.type = input.type === 'password' ? 'text' : 'password';
+        });
+
+        $('#btnClearChat').addEventListener('click', clearCurrentChat);
+        btnSend.addEventListener('click', sendMessage);
+
+        userInput.addEventListener('input', () => {
+            autoResizeTextarea();
+            updateSendButton();
+        });
+
+        userInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        agentSelect.addEventListener('change', () => {
+            settings.selectedAgentId = agentSelect.value;
+            saveSettings();
+        });
+
+        modelSelect.addEventListener('change', () => {
+            settings.selectedModel = modelSelect.value;
+            saveSettings();
+        });
+    }
+
+    // ============================================================
+    //  Init
+    // ============================================================
+    async function init() {
+        loadSessions();
+        loadSettings();
+        loadTheme();
+        renderModelSelect();
+        bindEvents();
+        updateSendButton();
+
+        if (sessions.length) {
+            currentSessionId = sessions[0].id;
+            renderSidebar();
+            renderMessages();
+        } else {
+            renderSidebar();
+        }
+
+        await fetchAgentList();
+
+        if (window.innerWidth <= 768) {
+            sidebar.classList.add('hidden');
+        }
+    }
+
+    init();
+})();
+</script>
+</body>
+</html>

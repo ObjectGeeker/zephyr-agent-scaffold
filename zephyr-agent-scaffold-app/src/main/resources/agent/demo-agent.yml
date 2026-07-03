@@ -1,0 +1,97 @@
+spring:
+  ai:
+    agent:
+      table-map:
+        demo-agent:
+          app-name: my-ai-application
+          app-type: openai  # 支持 openai、dashscope 等
+
+          agent:
+            agent-id: agent-001
+            agent-name: 智能业务助手
+            description: 负责处理用户日常业务咨询和数据分析的Agent
+
+          module:
+            # 1. API 基础配置
+            api:
+              api-key: sk-xxxxxxxxxxxxxxxxxxxxxxxx
+              base-url: https://api.openai.com
+              completions-path: /v1/chat/completions
+              embeddings-path: /v1/embeddings
+
+            # 2. 对话模型配置
+            chat-model:
+              model: gpt-4o
+
+            # 3. 基础 Agent 节点配置
+            agent-nodes:
+              # 节点1：带本地工具调用的 Agent
+              - key: data-analyst-node
+                name: 数据分析师
+                description: 专门负责处理数据查询和统计
+                system-prompt: 你是一个专业的数据分析师，请根据用户的问题调用相应的工具获取数据并总结。
+                instruction: 当前时间 {{current_time}}，用户问题 {{user_input}}
+                saver-type: memory
+                output-key: analysis_result
+                parallel-tool-execution: true
+                max-parallel-tools: 3
+                tool-execution-timeout: 5000
+                return-reasoning-contents: true
+                hooks:
+                  - loggingHook
+                  - metricsHook
+                interceptors:
+                  - sensitiveWordInterceptor
+                # 本地 Function Call 工具
+                tool-mcp-list:
+                  - local:
+                      bean-name: dataQueryTool
+
+              # 节点2：带 MCP 远程工具的 Agent
+              - key: web-search-node
+                name: 联网搜索助手
+                description: 负责实时联网获取最新信息
+                system-prompt: 你是一个搜索助手，优先使用工具获取最新信息。
+                tool-mcp-list:
+                  # SSE 方式接入的 MCP 工具
+                  - sse:
+                      name: search-mcp-server
+                      base-uri: http://localhost:8080
+                      sse-endpoint: /sse
+                      request-timeout: 5000
+                  # Stdio 方式接入的 MCP 工具
+                  - stdio:
+                      name: local-mcp-tool
+                      request-timeout: 3000
+                      server-parameters:
+                        command: node
+                        args:
+                          - ./mcp-tools/index.js
+                        env:
+                          API_KEY: env-api-key
+                          DEBUG: true
+                # 技能文档配置
+                tool-skills:
+                  - type: directory
+                    path: /data/skills/web-search
+
+            # 4. 多 Agent 协作配置
+            multi-agents:
+              - key: supervisor-team
+                name: 主管调度Agent
+                type: supervisor # 支持 sequential, loop, parallel, routing, supervisor, customized
+                description: 根据用户意图，将任务分发给数据分析师或搜索助手
+                sub-agent-keys:
+                  - data-analyst-node
+                  - web-search-node
+              - key: loop-reviewer
+                name: 循环质检Agent
+                type: loop
+                description: 对输出结果进行多轮自我审查
+                max-loop-count: 3
+                sub-agent-keys:
+                  - data-analyst-node
+
+            # 5. Agent 执行入口配置
+            agent-runner:
+              run-agent-key: supervisor-team
