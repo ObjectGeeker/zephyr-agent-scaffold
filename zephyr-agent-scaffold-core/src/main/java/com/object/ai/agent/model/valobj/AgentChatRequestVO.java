@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @AllArgsConstructor
@@ -24,5 +26,8 @@ public class AgentChatRequestVO {
 
     @Schema(description = "用户消息")
     private String userMessage;
+
+    @Schema(description = "多模态文件 id 列表，对应已上传文件的 id")
+    private List<String> fileIds;
 
 }

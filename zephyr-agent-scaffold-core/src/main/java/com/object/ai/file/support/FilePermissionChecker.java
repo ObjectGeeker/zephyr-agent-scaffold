@@ -34,6 +34,19 @@ public class FilePermissionChecker {
         }
     }
 
+    public void checkReadPermission(FilePO filePO) {
+        if (filePO == null) {
+            throw new BusinessException(BizErrorCode.NOT_FOUND_ERROR, "文件不存在");
+        }
+        StpUtil.checkLogin();
+        String currentUserId = StpUtil.getLoginIdAsString();
+        boolean isOwner = StrUtil.equals(currentUserId, filePO.getUserId());
+        boolean isAdmin = StpUtil.hasRole(UserRoleEnum.ADMIN.name());
+        if (!isOwner && !isAdmin) {
+            throw new BusinessException(BizErrorCode.NO_PERMISSION_ERROR, "无权限访问该文件");
+        }
+    }
+
     private FilePO findFile(String bucket, String objectKey) {
         LambdaQueryWrapper<FilePO> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(FilePO::getObjectKey, objectKey);

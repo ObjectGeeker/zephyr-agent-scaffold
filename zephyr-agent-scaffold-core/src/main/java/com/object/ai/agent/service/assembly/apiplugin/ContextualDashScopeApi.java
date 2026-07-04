@@ -271,11 +271,13 @@ public class ContextualDashScopeApi extends DashScopeApi {
         if (null != modelCredentials) {
             String apiKey = modelCredentials.getApiKey();
             String model = modelCredentials.getModel();
+            Boolean multiModel = modelCredentials.getMultiModel();
+            chatRequest = new DashScopeApiSpec.ChatCompletionRequest(chatRequest.model(), chatRequest.input(), chatRequest.parameters(), chatRequest.stream(), multiModel);
             if (StrUtil.isNotBlank(apiKey)) {
                 additionalHttpHeader.add(HttpHeaders.AUTHORIZATION, apiKey);
             }
             if (StrUtil.isNotBlank(model)) {
-                chatRequest = new DashScopeApiSpec.ChatCompletionRequest(model, chatRequest.input(), chatRequest.parameters(), chatRequest.stream(), chatRequest.multiModel());
+                chatRequest = new DashScopeApiSpec.ChatCompletionRequest(model, chatRequest.input(), chatRequest.parameters(), chatRequest.stream(), multiModel);
             }
         }
 

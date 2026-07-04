@@ -1,17 +1,24 @@
 package com.object.ai.agent.service.chat.impl;
 
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.map.MapUtil;
 import cn.hutool.extra.spring.SpringUtil;
 import com.alibaba.cloud.ai.graph.NodeOutput;
 import com.alibaba.cloud.ai.graph.RunnableConfig;
+import com.object.ai.agent.model.context.ModelContextHolder;
 import com.object.ai.agent.model.valobj.AgentAssemblyRegisterVO;
 import com.object.ai.agent.model.valobj.AgentChatRequestVO;
 import com.object.ai.agent.model.valobj.AgentStreamRequestVO;
 import com.object.ai.agent.model.valobj.AgentStreamResponseVO;
 import com.object.ai.agent.service.chat.AgentChatService;
 import com.object.ai.agent.service.chat.mapper.ChatStreamResponseMapper;
+import com.object.ai.file.service.MultiModalMediaService;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.content.Media;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -19,16 +26,23 @@ import reactor.core.publisher.Flux;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
+import static com.alibaba.cloud.ai.graph.utils.Messageutils.convertToMessages;
 
 @Service
 @Slf4j
 public class AgentChatServiceImpl implements AgentChatService {
 
     private final ChatStreamResponseMapper chatStreamResponseMapper = new ChatStreamResponseMapper();
+
+    @Resource
+    private MultiModalMediaService multiModalMediaService;
 
     @Override
     public String chat(AgentChatRequestVO agentChatRequestVO) {
@@ -40,8 +54,10 @@ public class AgentChatServiceImpl implements AgentChatService {
                 .threadId(threadId)
                 .build();
         try {
+            UserMessage userMessage = buildUserMessage(agentChatRequestVO.getUserMessage(),
+                    agentChatRequestVO.getFileIds());
             return registerVO.getRunnerAgent()
-                    .invokeAndGetOutput(agentChatRequestVO.getUserMessage(), config)
+                    .invokeAndGetOutput(userMessage, config)
                     .map(this::extractAssistantText)
                     .orElse(null);
         } catch (Exception e) {
@@ -70,8 +86,9 @@ public class AgentChatServiceImpl implements AgentChatService {
                 .threadId(threadId)
                 .build();
         try {
+            UserMessage userMessage = buildUserMessage(chatRequestDTO.getMessage(), chatRequestDTO.getFileIds());
             Flux<NodeOutput> flux = registerVO.getRunnerAgent()
-                    .stream(chatRequestDTO.getMessage(), config);
+                    .stream(userMessage, config);
             flux.subscribe(
                     nodeOutput -> nodeMapper.apply(nodeOutput)
                             .ifPresent(response -> sendStreamEvent(sseEmitter, response)),
@@ -85,6 +102,19 @@ public class AgentChatServiceImpl implements AgentChatService {
             log.error("agent chat error", e);
             sseEmitter.completeWithError(e);
         }
+    }
+
+    /**
+     * 构建对话用户消息，按需附加多模态内容。
+     */
+    private UserMessage buildUserMessage(String text, List<String> fileIds) {
+        List<Media> mediaList = multiModalMediaService.loadMediaByFileIds(fileIds);
+        UserMessage.Builder builder = UserMessage.builder().text(text);
+        if (CollUtil.isNotEmpty(mediaList)) {
+            builder.media(mediaList);
+            ModelContextHolder.get().setMultiModel(true);
+        }
+        return builder.build();
     }
 
     private void sendStreamEvent(SseEmitter sseEmitter, AgentStreamResponseVO response) {

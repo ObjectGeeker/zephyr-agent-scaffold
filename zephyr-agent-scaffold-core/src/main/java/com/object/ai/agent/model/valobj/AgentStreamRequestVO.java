@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
+import java.util.List;
 
 /**
  * Agent流式对话请求参数
@@ -45,5 +46,11 @@ public class AgentStreamRequestVO implements Serializable {
 
     @Schema(description = "对话接口")
     private String completionPath;
+
+    @Schema(description = "多模态文件 id 列表，对应已上传文件的 id")
+    private List<String> fileIds;
+
+    @Schema(description = "多模态接口")
+    private String multiModelPath;
 
 }

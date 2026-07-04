@@ -11,4 +11,9 @@ public class ModelCredentials {
     private String baseUrl;
     private String completionsPath;
     private String embeddingPath;
+
+    /**
+     * 标记是否多模态对话
+     */
+    private Boolean multiModel;
 }

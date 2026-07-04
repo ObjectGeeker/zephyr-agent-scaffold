@@ -1,9 +1,12 @@
 package com.object.ai.file.client;
 
+import com.object.ai.common.exception.BizErrorCode;
+import com.object.ai.common.exception.BusinessException;
 import com.object.ai.file.model.request.FileUploadRequestVO;
 import com.object.ai.file.model.po.FilePO;
 import com.object.ai.file.model.vo.FileVO;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.ai.content.Media;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
@@ -66,6 +69,18 @@ public interface FileStorageClient {
      */
     default void writeToResponse(FilePO filePO, HttpServletResponse response) {
 
+    }
+
+    /**
+     * 将文件解析为可供大模型访问的多模态内容
+     * <p>
+     * 本地存储直接读取文件字节（Resource），云端存储返回带过期时间的临时访问地址（URI）。
+     *
+     * @param filePO 文件元数据
+     * @return Spring AI 多模态内容
+     */
+    default Media resolveMedia(FilePO filePO) {
+        throw new BusinessException(BizErrorCode.OPERATION_ERROR, "该存储类型不支持多模态访问");
     }
 
 }

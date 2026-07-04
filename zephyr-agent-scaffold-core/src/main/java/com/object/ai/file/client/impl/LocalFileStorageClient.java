@@ -1,6 +1,7 @@
 package com.object.ai.file.client.impl;
 
 import cn.dev33.satoken.stp.StpUtil;
+import cn.hutool.core.util.StrUtil;
 import com.object.ai.common.exception.BizErrorCode;
 import com.object.ai.common.exception.BusinessException;
 import com.object.ai.file.client.FileStorageClient;
@@ -14,7 +15,10 @@ import com.object.ai.file.utils.FileStorageUtil;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.content.Media;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.stereotype.Component;
+import org.springframework.util.MimeTypeUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
@@ -107,6 +111,16 @@ public class LocalFileStorageClient implements FileStorageClient {
         } catch (IOException e) {
             throw new BusinessException(BizErrorCode.OPERATION_ERROR, "读取文件失败");
         }
+    }
+
+    @Override
+    public Media resolveMedia(FilePO filePO) {
+        Path targetPath = resolveObjectPath(filePO.getObjectKey());
+        if (!Files.exists(targetPath) || !Files.isRegularFile(targetPath)) {
+            throw new BusinessException(BizErrorCode.NOT_FOUND_ERROR, "文件不存在");
+        }
+        String contentType = StrUtil.blankToDefault(filePO.getContentType(), "application/octet-stream");
+        return new Media(MimeTypeUtils.parseMimeType(contentType), new FileSystemResource(targetPath));
     }
 
     private FileVO buildFileVO(FileUploadRequestVO request, String objectKey, Path targetPath, String originName,

@@ -15,6 +15,7 @@ import com.object.ai.file.utils.FileStorageUtil;
 import io.minio.BucketExistsArgs;
 import io.minio.GetObjectArgs;
 import io.minio.GetObjectResponse;
+import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
@@ -22,22 +23,27 @@ import io.minio.RemoveObjectArgs;
 import io.minio.StatObjectArgs;
 import io.minio.StatObjectResponse;
 import io.minio.errors.ErrorResponseException;
+import io.minio.http.Method;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.content.Media;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
+import org.springframework.util.MimeTypeUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URI;
 import java.nio.file.Files;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.concurrent.TimeUnit;
 
 @Component
 @Slf4j
@@ -150,6 +156,28 @@ public class MinioFileStorageClient implements FileStorageClient {
             }
             log.error("读取 MinIO 文件失败，bucket={}, objectKey={}", bucketName, objectKey, e);
             throw new BusinessException(BizErrorCode.OPERATION_ERROR, "读取文件失败");
+        }
+    }
+
+    @Override
+    public Media resolveMedia(FilePO filePO) {
+        if (filePO == null || StrUtil.isBlank(filePO.getObjectKey())) {
+            throw new BusinessException(BizErrorCode.PARAMS_MISSING_ERROR, "文件信息不能为空");
+        }
+        String bucketName = resolveBucketName(filePO.getBucket());
+        String objectKey = filePO.getObjectKey();
+        try {
+            String url = minioClient.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
+                    .method(Method.GET)
+                    .bucket(bucketName)
+                    .object(objectKey)
+                    .expiry(1, TimeUnit.HOURS)
+                    .build());
+            String contentType = StrUtil.blankToDefault(filePO.getContentType(), "application/octet-stream");
+            return new Media(MimeTypeUtils.parseMimeType(contentType), URI.create(url));
+        } catch (Exception e) {
+            log.error("生成 MinIO 预签名地址失败，bucket={}, objectKey={}", bucketName, objectKey, e);
+            throw new BusinessException(BizErrorCode.OPERATION_ERROR, "生成文件访问地址失败");
         }
     }
 

@@ -62,6 +62,7 @@ public class AgentController {
                 .model(request.getModel())
                 .baseUrl(request.getBaseUrl())
                 .completionsPath(request.getCompletionPath())
+                .multiModel(false)
                 .build();
         ModelContextHolder.set(credentials);
         SseEmitter sseEmitter = new SseEmitter(SSE_TIMEOUT);

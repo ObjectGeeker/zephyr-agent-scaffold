@@ -388,6 +388,75 @@
             align-items: center;
             gap: 8px;
         }
+
+        /* Attachments */
+        .attach-strip {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 10px 12px 0;
+        }
+        .attach-chip {
+            position: relative;
+            width: 56px;
+            height: 56px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            background: var(--main-bg);
+            flex-shrink: 0;
+        }
+        .attach-chip img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .attach-chip.uploading { opacity: 0.6; }
+        .attach-chip .attach-loading {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+        .attach-chip .remove {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 18px;
+            height: 18px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.55);
+            color: #fff;
+            font-size: 12px;
+            line-height: 1;
+            cursor: pointer;
+        }
+        .attach-chip .remove:hover { background: rgba(0,0,0,0.75); }
+
+        /* Message attachments */
+        .message-attachments {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .message-attachments img {
+            width: 120px;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            cursor: pointer;
+        }
         .toolbar-btn {
             display: flex;
             align-items: center;
@@ -645,8 +714,14 @@
     <div class="input-area">
         <div class="input-wrapper">
             <textarea id="userInput" placeholder="输入消息..." rows="1"></textarea>
+            <div class="attach-strip" id="attachStrip" style="display:none;"></div>
             <div class="input-toolbar">
                 <div class="input-toolbar-left">
+                    <button class="toolbar-btn" id="btnAttach" title="添加图片">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                        图片
+                    </button>
+                    <input type="file" id="fileInput" accept="image/*" multiple hidden>
                     <button class="toolbar-btn" id="btnClearChat" title="清空对话">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                         清空对话
@@ -736,6 +811,7 @@
     let isResponding = false;
     let abortController = null;
     let settingsDraft = null;
+    let pendingAttachments = [];
 
     // ============================================================
     //  DOM References
@@ -751,6 +827,9 @@
     const modelSelect = $('#modelSelect');
     const settingsPanel = $('#settingsPanel');
     const settingsOverlay = $('#settingsOverlay');
+    const fileInput = $('#fileInput');
+    const btnAttach = $('#btnAttach');
+    const attachStrip = $('#attachStrip');
 
     // ============================================================
     //  Utilities
@@ -975,12 +1054,28 @@
 
         const contentHtml = isUser ? escapeHtml(content) : renderMarkdown(content);
 
+        let attachmentsHtml = '';
+        if (isUser) {
+            const session = getCurrentSession();
+            const attachments = session && session.messages[idx] ? session.messages[idx].attachments : null;
+            if (attachments && attachments.length) {
+                attachmentsHtml = `<div class="message-attachments">${attachments.map(a =>
+                    `<img src="${attachPreviewUrl(a.id)}" alt="${escapeHtml(a.name || '')}" data-id="${escapeHtml(a.id)}">`
+                ).join('')}</div>`;
+            }
+        }
+
         div.innerHTML = `
             <div class="message-avatar ${avatarClass}">${avatarText}</div>
             <div class="message-body">
+                ${attachmentsHtml}
                 <div class="message-content" data-raw="${escapeHtml(content)}">${contentHtml}</div>
                 ${actionsHtml}
             </div>`;
+
+        div.querySelectorAll('.message-attachments img').forEach(img => {
+            img.addEventListener('click', () => window.open(img.src, '_blank'));
+        });
 
         messagesInner.appendChild(div);
 
@@ -1149,6 +1244,77 @@
         return full;
     }
 
+    // ============================================================
+    //  Attachments
+    // ============================================================
+    function attachPreviewUrl(fileId) {
+        return 'file/manager/preview/' + encodeURIComponent(fileId || '');
+    }
+
+    async function uploadAttachment(file) {
+        const form = new FormData();
+        form.append('file', file);
+        form.append('request', new Blob([JSON.stringify({ bizType: 'chat' })], { type: 'application/json' }));
+        const res = await fetch('file/manager/upload', { method: 'POST', body: form });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        if (json.code !== 200) throw new Error(json.message || '上传失败');
+        return json.data;
+    }
+
+    async function handleFilesSelected(files) {
+        for (const file of files) {
+            if (!file.type.startsWith('image/')) {
+                showToast('仅支持图片文件');
+                continue;
+            }
+            const localKey = generateId();
+            pendingAttachments.push({ localKey, id: null, name: file.name, status: 'uploading' });
+            renderAttachments();
+            try {
+                const fileId = await uploadAttachment(file);
+                const item = pendingAttachments.find(a => a.localKey === localKey);
+                if (item) {
+                    item.id = fileId;
+                    item.status = 'done';
+                }
+            } catch (err) {
+                pendingAttachments = pendingAttachments.filter(a => a.localKey !== localKey);
+                showToast('图片上传失败: ' + err.message);
+            }
+            renderAttachments();
+        }
+    }
+
+    function renderAttachments() {
+        if (!pendingAttachments.length) {
+            attachStrip.style.display = 'none';
+            attachStrip.innerHTML = '';
+            return;
+        }
+        attachStrip.style.display = 'flex';
+        attachStrip.innerHTML = pendingAttachments.map(a => {
+            if (a.status === 'uploading') {
+                return `<div class="attach-chip uploading" data-key="${a.localKey}">
+                    <div class="attach-loading">上传中</div>
+                </div>`;
+            }
+            return `<div class="attach-chip" data-key="${a.localKey}">
+                <img src="${attachPreviewUrl(a.id)}" alt="${escapeHtml(a.name || '')}">
+                <button class="remove" data-key="${a.localKey}" title="移除" aria-label="移除">×</button>
+            </div>`;
+        }).join('');
+
+        attachStrip.querySelectorAll('.remove').forEach(btn => {
+            btn.addEventListener('click', () => removeAttachment(btn.dataset.key));
+        });
+    }
+
+    function removeAttachment(localKey) {
+        pendingAttachments = pendingAttachments.filter(a => a.localKey !== localKey);
+        renderAttachments();
+    }
+
     async function sendMessage() {
         const text = userInput.value.trim();
         if (!text || isResponding) return;
@@ -1159,7 +1325,11 @@
             session = getCurrentSession();
         }
 
-        session.messages.push({ role: 'user', content: text });
+        const attachments = pendingAttachments
+            .filter(a => a.id)
+            .map(a => ({ id: a.id, name: a.name }));
+
+        session.messages.push({ role: 'user', content: text, attachments });
         if (session.messages.length === 1) {
             session.title = text.length > 20 ? text.substring(0, 20) + '...' : text;
         }
@@ -1169,6 +1339,8 @@
 
         userInput.value = '';
         userInput.style.height = 'auto';
+        pendingAttachments = [];
+        renderAttachments();
         updateSendButton();
         welcome.style.display = 'none';
 
@@ -1197,7 +1369,8 @@
             agentName: agent.agentName,
             model: modelSelect.value || settings.selectedModel,
             apiKey: settings.apiKey || undefined,
-            baseUrl: settings.baseUrl || undefined
+            baseUrl: settings.baseUrl || undefined,
+            fileIds: attachments.map(a => a.id)
         };
 
         try {
@@ -1333,6 +1506,13 @@
 
         $('#btnClearChat').addEventListener('click', clearCurrentChat);
         btnSend.addEventListener('click', sendMessage);
+
+        btnAttach.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', async () => {
+            const files = Array.from(fileInput.files || []);
+            fileInput.value = '';
+            if (files.length) await handleFilesSelected(files);
+        });
 
         userInput.addEventListener('input', () => {
             autoResizeTextarea();

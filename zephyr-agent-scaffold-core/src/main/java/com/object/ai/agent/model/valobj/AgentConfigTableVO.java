@@ -89,6 +89,8 @@ public class AgentConfigTableVO implements Serializable {
             private String completionsPath = "/v1/chat/completions";
             @Schema(description = "模型向量地址")
             private String embeddingsPath = "/v1/embeddings";
+            @Schema(description = "多模态输入地址")
+            private String multiModelPath = "/v1/responses";
         }
 
         @Data

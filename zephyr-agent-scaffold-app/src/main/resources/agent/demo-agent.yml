@@ -3,7 +3,7 @@ spring:
     agent:
       table-map:
         demo-agent:
-          app-name: my-ai-application
+          app-name: demo-agent
           app-type: openai  # 支持 openai、dashscope 等
 
           agent:
