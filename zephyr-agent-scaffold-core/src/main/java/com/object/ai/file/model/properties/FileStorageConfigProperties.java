@@ -30,6 +30,8 @@ public class FileStorageConfigProperties {
      */
     private Local local = new Local();
 
+    private Minio minio = new Minio();
+
     /**
      * 临时文件策略配置
      */
@@ -41,6 +43,26 @@ public class FileStorageConfigProperties {
          * 本地存储根目录，相对项目根目录
          */
         private String rootPath = "data/files";
+    }
+
+    @Data
+    public static class Minio {
+        /**
+         * Minio地址
+         */
+        private String endpoint;
+        /**
+         * 账号
+         */
+        private String accessKey;
+        /**
+         * 密码
+         */
+        private String secretKey;
+        /**
+         * 存储桶
+         */
+        private String bucketName;
     }
 
     @Data
