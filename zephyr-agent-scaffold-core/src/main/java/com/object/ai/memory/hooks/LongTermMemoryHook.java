@@ -1,6 +1,7 @@
 package com.object.ai.memory.hooks;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
 import com.alibaba.cloud.ai.graph.RunnableConfig;
 import com.alibaba.cloud.ai.graph.agent.hook.HookPosition;
 import com.alibaba.cloud.ai.graph.agent.hook.HookPositions;
@@ -8,6 +9,7 @@ import com.alibaba.cloud.ai.graph.agent.hook.messages.AgentCommand;
 import com.alibaba.cloud.ai.graph.agent.hook.messages.MessagesModelHook;
 import com.alibaba.cloud.ai.graph.utils.TypeRef;
 import com.object.ai.memory.constants.MemoryMetadataKeys;
+import com.object.ai.memory.event.MemorySummaryEvent;
 import com.object.ai.memory.mapper.MessageMapper;
 import com.object.ai.memory.mapper.SessionMapper;
 import com.object.ai.memory.model.enums.MessageRoleEnum;
@@ -21,6 +23,7 @@ import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -42,6 +45,9 @@ public class LongTermMemoryHook extends MessagesModelHook {
     @Resource
     private SessionMapper sessionMapper;
 
+    @Resource
+    private ApplicationEventPublisher applicationEventPublisher;
+
     @Override
     public String getName() {
         return "long_term_memory_hook";
@@ -57,6 +63,9 @@ public class LongTermMemoryHook extends MessagesModelHook {
             return new AgentCommand(messages);
         }
 
+        // 填充长期记忆到systemMessage
+        fillLongTermMemory(messages, config);
+
         Message lastMessage = CollUtil.getLast(messages);
         if (!(lastMessage instanceof UserMessage userMessage)) {
             return new AgentCommand(messages);
@@ -71,6 +80,22 @@ public class LongTermMemoryHook extends MessagesModelHook {
         return new AgentCommand(messages);
     }
 
+    private void fillLongTermMemory(List<Message> messages, RunnableConfig config) {
+        String sessionId = config.threadId().orElse(null);
+        SessionPO sessionPO = sessionMapper.selectById(sessionId);
+        for (int i = 0; i < messages.size(); i++) {
+            if (messages.get(i) instanceof SystemMessage sysMsg) {
+                if (sessionPO != null && StrUtil.isNotBlank(sessionPO.getLongTimeMemory())) {
+                    String enhanced = sysMsg.getText()
+                            + "\n\n---\n以下是用户长期记忆，请在回答时参考：\n"
+                            + sessionPO.getLongTimeMemory();
+                    messages.set(i, new SystemMessage(enhanced));
+                    break;
+                }
+            }
+        }
+    }
+
     @Override
     public AgentCommand afterModel(List<Message> previousMessages, RunnableConfig config) {
         if (shouldSkipMessageSave(config)) {
@@ -80,6 +105,9 @@ public class LongTermMemoryHook extends MessagesModelHook {
         if (sessionId.isEmpty()) {
             return new AgentCommand(previousMessages);
         }
+
+        // 发布消息总结的event
+        applicationEventPublisher.publishEvent(new MemorySummaryEvent(sessionId.get(), previousMessages));
 
         Message lastMessage = CollUtil.getLast(previousMessages);
         if (lastMessage instanceof SystemMessage) {
