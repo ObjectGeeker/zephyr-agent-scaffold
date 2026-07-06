@@ -1,5 +1,6 @@
 package com.object.ai.agent.service.chat.impl;
 
+import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.map.MapUtil;
 import cn.hutool.extra.spring.SpringUtil;
@@ -116,6 +117,9 @@ public class AgentChatServiceImpl implements AgentChatService {
     private RunnableConfig buildMessageSaveConfig(String threadId, List<String> fileIds, Boolean saveMessage) {
         RunnableConfig.Builder builder = RunnableConfig.builder()
                 .threadId(threadId);
+        if (StpUtil.isLogin()) {
+            builder.addMetadata(MemoryMetadataKeys.USER_ID, StpUtil.getLoginIdAsString());
+        }
         if (Boolean.TRUE.equals(saveMessage)) {
             builder.addMetadata(MemoryMetadataKeys.SAVE_MESSAGE, true);
             if (CollUtil.isNotEmpty(fileIds)) {

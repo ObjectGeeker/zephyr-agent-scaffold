@@ -5,6 +5,9 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.object.ai.memory.model.po.MessagePO;
 import org.apache.ibatis.annotations.Mapper;
 
+import java.util.Collections;
+import java.util.List;
+
 @Mapper
 public interface MessageMapper extends BaseMapper<MessagePO> {
 
@@ -29,5 +32,23 @@ public interface MessageMapper extends BaseMapper<MessagePO> {
             return;
         }
         this.insert(messagePO);
+    }
+
+    /**
+     * 按消息序号倒序取最近 N 条，再翻转为时间正序返回。
+     *
+     * @param beforeIndex 仅返回序号小于该值的记录，null 表示从最新开始
+     */
+    default List<MessagePO> selectHistoryMessages(String sessionId, Integer beforeIndex, int limit) {
+        LambdaQueryWrapper<MessagePO> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(MessagePO::getSessionId, sessionId);
+        if (beforeIndex != null) {
+            wrapper.lt(MessagePO::getMessageIndex, beforeIndex);
+        }
+        wrapper.orderByDesc(MessagePO::getMessageIndex)
+                .last("LIMIT " + limit);
+        List<MessagePO> messages = selectList(wrapper);
+        Collections.reverse(messages);
+        return messages;
     }
 }

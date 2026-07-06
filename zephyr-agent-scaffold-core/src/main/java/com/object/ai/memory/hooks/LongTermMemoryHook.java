@@ -106,8 +106,10 @@ public class LongTermMemoryHook extends MessagesModelHook {
             return new AgentCommand(previousMessages);
         }
 
-        // 发布消息总结的event
-        applicationEventPublisher.publishEvent(new MemorySummaryEvent(sessionId.get(), previousMessages));
+        // 仅轮次结束（最终 Assistant 回复、无 toolCalls）时发布总结事件
+        if (shouldPublishSummaryEvent(previousMessages)) {
+            applicationEventPublisher.publishEvent(new MemorySummaryEvent(sessionId.get(), previousMessages));
+        }
 
         Message lastMessage = CollUtil.getLast(previousMessages);
         if (lastMessage instanceof SystemMessage) {
@@ -123,6 +125,20 @@ public class LongTermMemoryHook extends MessagesModelHook {
     private boolean shouldSkipMessageSave(RunnableConfig config) {
         return !config.metadata(MemoryMetadataKeys.SAVE_MESSAGE, new TypeRef<Boolean>() {
         }).orElse(false);
+    }
+
+    /**
+     * 工具循环中 afterModel 会多次触发；仅在最终 Assistant 回复（无 toolCalls）时总结。
+     */
+    private boolean shouldPublishSummaryEvent(List<Message> messages) {
+        if (CollUtil.isEmpty(messages)) {
+            return false;
+        }
+        Message lastMessage = CollUtil.getLast(messages);
+        if (!(lastMessage instanceof AssistantMessage assistantMessage)) {
+            return false;
+        }
+        return !assistantMessage.hasToolCalls();
     }
 
     private int resolveNextMessageIndex(String sessionId) {
