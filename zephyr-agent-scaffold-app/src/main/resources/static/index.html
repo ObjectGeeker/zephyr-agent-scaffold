@@ -788,9 +788,13 @@
     // ============================================================
     //  Constants & Storage Keys
     // ============================================================
-    const STORAGE_SESSIONS = 'chat_sessions';
     const STORAGE_SETTINGS = 'chat_settings';
     const STORAGE_THEME = 'chat_theme';
+    const STORAGE_USER = 'zephyr_auth_user';
+    const STORAGE_MESSAGE_FEEDBACK = 'chat_message_feedback';
+
+    /** 是否将对话消息持久化到后端（需配合 agent/memory 会话） */
+    const SAVE_MESSAGE = true;
 
     const DEFAULT_SETTINGS = {
         baseUrl: '',
@@ -856,17 +860,82 @@
     }
 
     // ============================================================
-    //  LocalStorage
+    //  LocalStorage & Auth
     // ============================================================
-    function loadSessions() {
+    function getStoredUser() {
         try {
-            const raw = localStorage.getItem(STORAGE_SESSIONS);
-            sessions = raw ? JSON.parse(raw) : [];
-        } catch { sessions = []; }
+            const raw = localStorage.getItem(STORAGE_USER);
+            return raw ? JSON.parse(raw) : null;
+        } catch {
+            return null;
+        }
     }
 
-    function saveSessions() {
-        localStorage.setItem(STORAGE_SESSIONS, JSON.stringify(sessions));
+    function guardPage() {
+        if (!getStoredUser()) {
+            window.location.href = 'login.html';
+            return false;
+        }
+        return true;
+    }
+
+    function loadFeedbackStore() {
+        try {
+            const raw = localStorage.getItem(STORAGE_MESSAGE_FEEDBACK);
+            return raw ? JSON.parse(raw) : {};
+        } catch {
+            return {};
+        }
+    }
+
+    function saveFeedbackStore(store) {
+        localStorage.setItem(STORAGE_MESSAGE_FEEDBACK, JSON.stringify(store));
+    }
+
+    function feedbackKey(sessionId, messageIndex) {
+        return `${sessionId}_${messageIndex}`;
+    }
+
+    function loadMessageFeedback(sessionId, messageIndex) {
+        if (sessionId == null || messageIndex == null) return null;
+        const store = loadFeedbackStore();
+        return store[feedbackKey(sessionId, messageIndex)] || null;
+    }
+
+    function saveMessageFeedback(sessionId, messageIndex, feedback) {
+        const store = loadFeedbackStore();
+        const key = feedbackKey(sessionId, messageIndex);
+        if (feedback) {
+            store[key] = feedback;
+        } else {
+            delete store[key];
+        }
+        saveFeedbackStore(store);
+    }
+
+    function mapSessionFromVo(vo) {
+        const ts = vo.lastMessageAt || vo.updateTime || vo.createTime;
+        return {
+            id: vo.id,
+            title: vo.sessionName || '新对话',
+            agentId: vo.agentId,
+            messages: [],
+            messagesLoaded: false,
+            createdAt: Date.parse(vo.createTime) || Date.now(),
+            updatedAt: ts ? Date.parse(ts) : Date.now()
+        };
+    }
+
+    function mapMessagesFromVo(list, sessionId) {
+        return (list || [])
+            .filter(m => m.role === 'user' || m.role === 'assistant')
+            .map(m => ({
+                role: m.role,
+                content: m.messageContent || '',
+                attachments: (m.attachment || []).map(id => ({ id, name: '' })),
+                messageIndex: m.messageIndex,
+                feedback: loadMessageFeedback(sessionId, m.messageIndex)
+            }));
     }
 
     function loadSettings() {
@@ -941,12 +1010,12 @@
         sidebarHistory.innerHTML = html || '<div style="padding:12px;color:var(--sidebar-muted);font-size:13px;">暂无历史对话</div>';
 
         sidebarHistory.querySelectorAll('.history-item').forEach(el => {
-            el.addEventListener('click', () => switchSession(el.dataset.id));
+            el.addEventListener('click', () => { void switchSession(el.dataset.id); });
         });
         sidebarHistory.querySelectorAll('.history-item-delete').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                deleteSession(btn.dataset.id);
+                void deleteSession(btn.dataset.id);
             });
         });
     }
@@ -954,60 +1023,103 @@
     // ============================================================
     //  Session Management
     // ============================================================
-    function createSession() {
-        const session = {
-            id: generateId(),
-            title: '新对话',
-            messages: [],
-            createdAt: Date.now(),
-            updatedAt: Date.now()
-        };
-        sessions.unshift(session);
-        currentSessionId = session.id;
-        saveSessions();
-        renderSidebar();
-        renderMessages();
-        userInput.focus();
-        if (window.innerWidth <= 768) sidebar.classList.add('hidden');
+    async function loadSessionsFromApi() {
+        try {
+            const list = await fetchSessionList({});
+            sessions = (list || []).map(mapSessionFromVo);
+        } catch (err) {
+            console.warn('加载会话列表失败:', err);
+            sessions = [];
+            showToast('加载会话列表失败');
+        }
     }
 
-    function switchSession(id) {
+    async function createSession() {
+        const agent = getSelectedAgent();
+        try {
+            const vo = await createSessionApi({
+                id: generateId(),
+                sessionName: '新对话',
+                agentId: agent.agentId || undefined
+            });
+            const session = mapSessionFromVo(vo);
+            sessions.unshift(session);
+            currentSessionId = session.id;
+            renderSidebar();
+            renderMessages();
+            userInput.focus();
+            if (window.innerWidth <= 768) sidebar.classList.add('hidden');
+            return session;
+        } catch (err) {
+            console.warn('创建会话失败:', err);
+            showToast('创建会话失败: ' + err.message);
+            return null;
+        }
+    }
+
+    async function switchSession(id) {
         currentSessionId = id;
+        const session = getCurrentSession();
+        if (session && !session.messagesLoaded) {
+            try {
+                const list = await fetchMessageList(session.id);
+                session.messages = mapMessagesFromVo(list, session.id);
+                session.messagesLoaded = true;
+            } catch (err) {
+                console.warn('加载消息失败:', err);
+                showToast('加载消息失败');
+            }
+        }
         renderSidebar();
         renderMessages();
         if (window.innerWidth <= 768) sidebar.classList.add('hidden');
     }
 
-    function deleteSession(id) {
+    async function deleteSession(id) {
         const idx = sessions.findIndex(s => s.id === id);
         if (idx === -1) return;
 
-        sessions.splice(idx, 1);
-        saveSessions();
+        try {
+            await deleteSessionApi(id);
+        } catch (err) {
+            console.warn('删除会话失败:', err);
+            showToast('删除会话失败');
+            return;
+        }
 
+        sessions.splice(idx, 1);
         if (currentSessionId === id) {
-            if (sessions.length) {
-                currentSessionId = sessions[0].id;
-            } else {
-                currentSessionId = null;
+            currentSessionId = sessions.length ? sessions[0].id : null;
+            if (currentSessionId) {
+                await switchSession(currentSessionId);
             }
         }
 
         renderSidebar();
-        renderMessages();
+        if (!currentSessionId) {
+            renderMessages();
+        }
         showToast('对话已删除');
     }
 
-    function clearCurrentChat() {
+    async function clearCurrentChat() {
         const session = getCurrentSession();
         if (!session) return;
-        session.messages = [];
-        session.title = '新对话';
-        session.updatedAt = Date.now();
-        saveSessions();
-        renderSidebar();
-        renderMessages();
-        showToast('对话已清空');
+
+        const id = session.id;
+        try {
+            await deleteSessionApi(id);
+            const idx = sessions.findIndex(s => s.id === id);
+            if (idx !== -1) {
+                sessions.splice(idx, 1);
+            }
+            currentSessionId = null;
+            await createSession();
+            showToast('对话已清空');
+        } catch (err) {
+            console.warn('清空对话失败:', err);
+            showToast('清空对话失败');
+        }
     }
 
     // ============================================================
@@ -1117,11 +1229,11 @@
             navigator.clipboard.writeText(text).then(() => showToast('已复制'));
         } else if (action === 'like') {
             msg.feedback = msg.feedback === 'like' ? null : 'like';
-            saveSessions();
+            saveMessageFeedback(session.id, msg.messageIndex, msg.feedback);
             renderMessages();
         } else if (action === 'dislike') {
             msg.feedback = msg.feedback === 'dislike' ? null : 'dislike';
-            saveSessions();
+            saveMessageFeedback(session.id, msg.messageIndex, msg.feedback);
             renderMessages();
         }
     }
@@ -1134,15 +1246,56 @@
     // ============================================================
     //  API Layer
     // ============================================================
+    async function parseResponse(res, fallbackMessage) {
+        if (res.status === 401) {
+            window.location.href = 'login.html';
+            throw new Error('未登录或登录已失效');
+        }
+        let json;
+        try {
+            json = await res.json();
+        } catch (error) {
+            throw new Error('服务响应解析失败');
+        }
+        if (!res.ok || json.code !== 200) {
+            throw new Error(json.message || fallbackMessage || `HTTP ${res.status}`);
+        }
+        return json.data;
+    }
+
+    async function apiPost(path, payload, fallbackMessage) {
+        const res = await fetch(path, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload ?? {})
+        });
+        return parseResponse(res, fallbackMessage || '请求失败');
+    }
+
+    function fetchSessionList(query) {
+        return apiPost('agent/memory/findSessionList', query || {}, '加载会话列表失败');
+    }
+
+    function createSessionApi(body) {
+        return apiPost('agent/memory/createSession', body, '创建会话失败');
+    }
+
+    function updateSessionApi(body) {
+        return apiPost('agent/memory/updateSession', body, '更新会话失败');
+    }
+
+    function deleteSessionApi(id) {
+        return apiPost('agent/memory/deleteSession', { id }, '删除会话失败');
+    }
+
+    function fetchMessageList(sessionId) {
+        return apiPost('agent/memory/findMessageList', { sessionId }, '加载消息失败');
+    }
+
     async function fetchAgentList() {
         try {
-            const res = await fetch('agent/findAgentList', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const json = await res.json();
-            agents = json.data || [];
+            agents = await apiPost('agent/findAgentList', {}, '加载 Agent 列表失败') || [];
             renderAgentSelect();
         } catch (err) {
             console.warn('加载 Agent 列表失败:', err);
@@ -1255,7 +1408,11 @@
         const form = new FormData();
         form.append('file', file);
         form.append('request', new Blob([JSON.stringify({ bizType: 'chat' })], { type: 'application/json' }));
-        const res = await fetch('file/manager/upload', { method: 'POST', body: form });
+        const res = await fetch('file/manager/upload', {
+            method: 'POST',
+            credentials: 'include',
+            body: form
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         if (json.code !== 200) throw new Error(json.message || '上传失败');
@@ -1321,21 +1478,27 @@
 
         let session = getCurrentSession();
         if (!session) {
-            createSession();
-            session = getCurrentSession();
+            session = await createSession();
+            if (!session) return;
         }
 
         const attachments = pendingAttachments
             .filter(a => a.id)
             .map(a => ({ id: a.id, name: a.name }));
 
+        const isFirstMessage = session.messages.length === 0;
         session.messages.push({ role: 'user', content: text, attachments });
-        if (session.messages.length === 1) {
-            session.title = text.length > 20 ? text.substring(0, 20) + '...' : text;
+        if (isFirstMessage) {
+            const title = text.length > 20 ? text.substring(0, 20) + '...' : text;
+            session.title = title;
+            session.updatedAt = Date.now();
+            renderSidebar();
+            try {
+                await updateSessionApi({ id: session.id, sessionName: title });
+            } catch (err) {
+                console.warn('更新会话标题失败:', err);
+            }
         }
-        session.updatedAt = Date.now();
-        saveSessions();
-        renderSidebar();
 
         userInput.value = '';
         userInput.style.height = 'auto';
@@ -1370,7 +1533,8 @@
             model: modelSelect.value || settings.selectedModel,
             apiKey: settings.apiKey || undefined,
             baseUrl: settings.baseUrl || undefined,
-            fileIds: attachments.map(a => a.id)
+            fileIds: attachments.map(a => a.id),
+            saveMessage: SAVE_MESSAGE
         };
 
         try {
@@ -1380,10 +1544,16 @@
 
             const response = await fetch('agent/stream', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(requestBody),
                 signal: abortController.signal
             });
+
+            if (response.status === 401) {
+                window.location.href = 'login.html';
+                return;
+            }
 
             if (!response.ok) {
                 const errText = await response.text();
@@ -1398,13 +1568,14 @@
                 finalText = await readSSEStream(response.body, contentEl, toolsContainer);
             }
 
-            session.messages.push({ role: 'assistant', content: finalText || '(无回复)' });
+            const assistantContent = finalText || contentEl.dataset.raw || '(无回复)';
+            session.messages.push({ role: 'assistant', content: assistantContent });
             session.updatedAt = Date.now();
-            saveSessions();
+            renderSidebar();
 
             const aiIdx = session.messages.length - 1;
             msgDiv.dataset.idx = aiIdx;
-            contentEl.dataset.raw = finalText || '(无回复)';
+            contentEl.dataset.raw = assistantContent;
             bindMessageActions(msgDiv, aiIdx);
 
         } catch (err) {
@@ -1412,7 +1583,11 @@
             const errMsg = `请求失败: ${err.message}`;
             contentEl.innerHTML = escapeHtml(errMsg);
             session.messages.push({ role: 'assistant', content: errMsg });
-            saveSessions();
+            session.updatedAt = Date.now();
+            renderSidebar();
+            const aiIdx = session.messages.length - 1;
+            msgDiv.dataset.idx = aiIdx;
+            bindMessageActions(msgDiv, aiIdx);
         } finally {
             isResponding = false;
             abortController = null;
@@ -1473,7 +1648,7 @@
     //  Event Bindings
     // ============================================================
     function bindEvents() {
-        $('#btnNewChat').addEventListener('click', createSession);
+        $('#btnNewChat').addEventListener('click', () => { void createSession(); });
         $('#btnMenu').addEventListener('click', () => sidebar.classList.toggle('hidden'));
         $('#btnFileManager').addEventListener('click', () => {
             window.location.href = 'file-manager.html';
@@ -1504,7 +1679,7 @@
             input.type = input.type === 'password' ? 'text' : 'password';
         });
 
-        $('#btnClearChat').addEventListener('click', clearCurrentChat);
+        $('#btnClearChat').addEventListener('click', () => { void clearCurrentChat(); });
         btnSend.addEventListener('click', sendMessage);
 
         btnAttach.addEventListener('click', () => fileInput.click());
@@ -1541,17 +1716,17 @@
     //  Init
     // ============================================================
     async function init() {
-        loadSessions();
+        if (!guardPage()) return;
         loadSettings();
         loadTheme();
         renderModelSelect();
         bindEvents();
         updateSendButton();
 
+        await loadSessionsFromApi();
         if (sessions.length) {
             currentSessionId = sessions[0].id;
-            renderSidebar();
-            renderMessages();
+            await switchSession(currentSessionId);
         } else {
             renderSidebar();
         }

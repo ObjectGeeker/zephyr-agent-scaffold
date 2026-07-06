@@ -13,6 +13,7 @@ import com.object.ai.agent.model.valobj.AgentStreamResponseVO;
 import com.object.ai.agent.service.chat.AgentChatService;
 import com.object.ai.agent.service.chat.mapper.ChatStreamResponseMapper;
 import com.object.ai.file.service.MultiModalMediaService;
+import com.object.ai.memory.constants.MemoryMetadataKeys;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -26,14 +27,11 @@ import reactor.core.publisher.Flux;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
-
-import static com.alibaba.cloud.ai.graph.utils.Messageutils.convertToMessages;
 
 @Service
 @Slf4j
@@ -50,9 +48,8 @@ public class AgentChatServiceImpl implements AgentChatService {
         AgentAssemblyRegisterVO registerVO = SpringUtil.getBean(
                 "Agent_" + agentId, AgentAssemblyRegisterVO.class);
         String threadId = agentChatRequestVO.getUserId() + "_" + agentChatRequestVO.getSessionId();
-        RunnableConfig config = RunnableConfig.builder()
-                .threadId(threadId)
-                .build();
+        RunnableConfig config = buildMessageSaveConfig(threadId, agentChatRequestVO.getFileIds(),
+                agentChatRequestVO.getSaveMessage());
         try {
             UserMessage userMessage = buildUserMessage(agentChatRequestVO.getUserMessage(),
                     agentChatRequestVO.getFileIds());
@@ -82,9 +79,8 @@ public class AgentChatServiceImpl implements AgentChatService {
         AgentAssemblyRegisterVO registerVO = SpringUtil.getBean(
                 "Agent_" + agentId, AgentAssemblyRegisterVO.class);
         String threadId = chatRequestDTO.getThreadId();
-        RunnableConfig config = RunnableConfig.builder()
-                .threadId(threadId)
-                .build();
+        RunnableConfig config = buildMessageSaveConfig(threadId, chatRequestDTO.getFileIds(),
+                chatRequestDTO.getSaveMessage());
         try {
             UserMessage userMessage = buildUserMessage(chatRequestDTO.getMessage(), chatRequestDTO.getFileIds());
             Flux<NodeOutput> flux = registerVO.getRunnerAgent()
@@ -113,6 +109,18 @@ public class AgentChatServiceImpl implements AgentChatService {
         if (CollUtil.isNotEmpty(mediaList)) {
             builder.media(mediaList);
             ModelContextHolder.get().setMultiModel(true);
+        }
+        return builder.build();
+    }
+
+    private RunnableConfig buildMessageSaveConfig(String threadId, List<String> fileIds, Boolean saveMessage) {
+        RunnableConfig.Builder builder = RunnableConfig.builder()
+                .threadId(threadId);
+        if (Boolean.TRUE.equals(saveMessage)) {
+            builder.addMetadata(MemoryMetadataKeys.SAVE_MESSAGE, true);
+            if (CollUtil.isNotEmpty(fileIds)) {
+                builder.addMetadata(MemoryMetadataKeys.FILE_IDS, fileIds);
+            }
         }
         return builder.build();
     }

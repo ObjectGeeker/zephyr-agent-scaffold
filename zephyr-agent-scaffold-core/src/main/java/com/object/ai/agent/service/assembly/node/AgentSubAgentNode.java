@@ -12,6 +12,9 @@ import com.alibaba.cloud.ai.graph.agent.hook.skills.SkillsAgentHook;
 import com.alibaba.cloud.ai.graph.agent.interceptor.Interceptor;
 import com.alibaba.cloud.ai.graph.checkpoint.BaseCheckpointSaver;
 import com.alibaba.cloud.ai.graph.checkpoint.savers.MemorySaver;
+import com.alibaba.cloud.ai.graph.checkpoint.savers.redis.RedisSaver;
+import com.alibaba.cloud.ai.graph.serializer.plain_text.jackson.JacksonStateSerializer;
+import com.alibaba.cloud.ai.graph.serializer.std.SpringAIStateSerializer;
 import com.object.ai.agent.model.enums.AgentSaverTypeEnum;
 import com.object.ai.agent.model.valobj.AgentAssemblyCommandVO;
 import com.object.ai.agent.model.valobj.AgentAssemblyRegisterVO;
@@ -22,12 +25,15 @@ import com.object.ai.agent.service.assembly.matter.mcp.client.ToolMcpCreateServi
 import com.object.ai.agent.service.assembly.matter.mcp.client.factory.DefaultMcpCreateFactory;
 import com.object.ai.agent.service.assembly.matter.skill.client.DefaultToolSkillsCreateService;
 import jakarta.annotation.Resource;
+import org.redisson.api.RedissonClient;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 子Agent装配
@@ -45,6 +51,9 @@ public class AgentSubAgentNode extends AbstractAgentAssemblySupport {
 
     @Resource
     private MultiAgentNode multiAgentNode;
+
+    @Autowired(required = false)
+    private RedissonClient redissonClient;
 
     @Override
     protected AgentAssemblyRegisterVO doApply(AgentAssemblyCommandVO requestParameter, DefaultAgentAssemblyFactory.DynamicContext dynamicContext) throws Exception {
@@ -98,7 +107,11 @@ public class AgentSubAgentNode extends AbstractAgentAssemblySupport {
                 saver = new MemorySaver();
             } else if (AgentSaverTypeEnum.redis.name().equals(agentNodeConfig.getSaverType())) {
                 // 需引入redissonClient
-                // saver = new RedisSaver();
+                 saver = RedisSaver.builder()
+                         .redisson(redissonClient)
+                         .ttl(24, TimeUnit.HOURS)
+                         .stateSerializer(new SpringAIStateSerializer())
+                         .build();
             } else if (AgentSaverTypeEnum.mongodb.name().equals(agentNodeConfig.getSaverType())) {
                 // 需引入mongodb
                 //  saver = new MongoSaver();

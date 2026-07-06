@@ -64,3 +64,48 @@ create index idx_file_biz
 
 create index idx_file_deleted
     on tb_file (deleted);
+
+create table tb_session
+(
+    id               varchar(50)                           not null comment '主键，同时作为 Agent threadId'
+        primary key,
+    session_name     varchar(128)                          null comment '会话名称',
+    user_id          varchar(50)                           not null comment '所属用户 ID',
+    agent_id         varchar(50)                           null comment '智能体 ID',
+    long_time_memory text                                  null comment '会话级长期记忆总结',
+    summary_count    int         default 0                 not null comment '记忆总结次数',
+    last_message_at  datetime                              null comment '最后一条消息时间',
+    status           varchar(20) default 'active'          not null comment '会话状态：active-活跃 archived-归档',
+    create_time      datetime    default CURRENT_TIMESTAMP not null comment '创建时间',
+    update_time      datetime    default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
+    create_by        varchar(50)                           null comment '创建人用户 ID',
+    update_by        varchar(50)                           null comment '更新人用户 ID',
+    deleted          tinyint     default 0                 not null comment '逻辑删除：0-未删除 1-已删除'
+)
+    comment 'Agent 会话表' collate = utf8mb4_unicode_ci;
+
+create index idx_session_user_list
+    on tb_session (user_id, deleted, last_message_at);
+
+create table tb_message
+(
+    id              varchar(50)                        not null comment '主键'
+        primary key,
+    session_id      varchar(50)                        not null comment '所属会话 ID',
+    role            varchar(20)                        not null comment '消息角色：user/assistant/system/tool',
+    message_content text                               null comment '消息内容',
+    attachment      text                               null comment '附件 fileId 列表（JSON 数组）',
+    metadata        text                               null comment '工具调用等扩展信息（JSON）',
+    message_index   int                                not null comment '会话内消息序号',
+    create_time     datetime default CURRENT_TIMESTAMP not null comment '创建时间',
+    update_time     datetime default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
+    create_by       varchar(50)                        null comment '创建人用户 ID',
+    update_by       varchar(50)                        null comment '更新人用户 ID',
+    deleted         tinyint  default 0                 not null comment '逻辑删除：0-未删除 1-已删除',
+    constraint uk_session_msg_index
+        unique (session_id, message_index)
+)
+    comment 'Agent 消息记录表' collate = utf8mb4_unicode_ci;
+
+create index idx_message_session
+    on tb_message (session_id, deleted, message_index);

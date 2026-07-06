@@ -53,4 +53,7 @@ public class AgentStreamRequestVO implements Serializable {
     @Schema(description = "多模态接口")
     private String multiModelPath;
 
+    @Schema(description = "是否将本轮对话消息持久化到数据库")
+    private Boolean saveMessage;
+
 }

@@ -30,4 +30,7 @@ public class AgentChatRequestVO {
     @Schema(description = "多模态文件 id 列表，对应已上传文件的 id")
     private List<String> fileIds;
 
+    @Schema(description = "是否将本轮对话消息持久化到数据库")
+    private Boolean saveMessage;
+
 }
