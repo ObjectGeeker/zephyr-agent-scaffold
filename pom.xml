@@ -6,7 +6,7 @@
 
     <groupId>com.object.ai</groupId>
     <artifactId>zephyr-agent-scaffold</artifactId>
-    <version>1.0</version>
+    <version>2.0</version>
     <packaging>pom</packaging>
     <modules>
         <module>zephyr-agent-scaffold-app</module>
@@ -153,12 +153,12 @@
             <dependency>
                 <groupId>com.object.ai</groupId>
                 <artifactId>zephyr-agent-scaffold-app</artifactId>
-                <version>1.0</version>
+                <version>2.0</version>
             </dependency>
             <dependency>
                 <groupId>com.object.ai</groupId>
                 <artifactId>zephyr-agent-scaffold-core</artifactId>
-                <version>1.0</version>
+                <version>2.0</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
