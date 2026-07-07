@@ -13,8 +13,6 @@ import com.alibaba.cloud.ai.graph.agent.interceptor.Interceptor;
 import com.alibaba.cloud.ai.graph.checkpoint.BaseCheckpointSaver;
 import com.alibaba.cloud.ai.graph.checkpoint.savers.MemorySaver;
 import com.alibaba.cloud.ai.graph.checkpoint.savers.redis.RedisSaver;
-import com.alibaba.cloud.ai.graph.serializer.plain_text.jackson.JacksonStateSerializer;
-import com.alibaba.cloud.ai.graph.serializer.std.SpringAIStateSerializer;
 import com.object.ai.agent.model.enums.AgentSaverTypeEnum;
 import com.object.ai.agent.model.valobj.AgentAssemblyCommandVO;
 import com.object.ai.agent.model.valobj.AgentAssemblyRegisterVO;
@@ -81,8 +79,10 @@ public class AgentSubAgentNode extends AbstractAgentAssemblySupport {
                 }
             }
 
-            // 构造hooks
-            List<Hook> hookList = new ArrayList<>(skillsAgentHooks);
+            // 构造hooks（ModelContextHook 优先注入，保证 BYOK 在工具循环中可用）
+            List<Hook> hookList = new ArrayList<>();
+            hookList.add(SpringUtil.getBean("modelContextHook"));
+            hookList.addAll(skillsAgentHooks);
             if (CollUtil.isNotEmpty(agentNodeConfig.getHooks())) {
                 List<String> hooks = agentNodeConfig.getHooks();
                 for (String hookName : hooks) {
@@ -110,7 +110,6 @@ public class AgentSubAgentNode extends AbstractAgentAssemblySupport {
                  saver = RedisSaver.builder()
                          .redisson(redissonClient)
                          .ttl(24, TimeUnit.HOURS)
-                         .stateSerializer(new SpringAIStateSerializer())
                          .build();
             } else if (AgentSaverTypeEnum.mongodb.name().equals(agentNodeConfig.getSaverType())) {
                 // 需引入mongodb

@@ -66,10 +66,11 @@ public class LongTermMemoryHook extends MessagesModelHook {
         // 填充长期记忆到systemMessage
         fillLongTermMemory(messages, config);
 
-        Message lastMessage = CollUtil.getLast(messages);
-        if (!(lastMessage instanceof UserMessage userMessage)) {
+        Optional<UserMessage> userMessageOpt = findLatestUserMessageInTail(messages, 2);
+        if (userMessageOpt.isEmpty()) {
             return new AgentCommand(messages);
         }
+        UserMessage userMessage = userMessageOpt.get();
 
         List<String> fileIds = config.metadata(MemoryMetadataKeys.FILE_IDS, new TypeRef<List<String>>() {
         }).orElse(null);
@@ -144,6 +145,24 @@ public class LongTermMemoryHook extends MessagesModelHook {
     private int resolveNextMessageIndex(String sessionId) {
         Integer maxIndex = messageMapper.selectMaxMessageIndex(sessionId);
         return maxIndex == null ? 0 : maxIndex + 1;
+    }
+
+    /**
+     * 从消息列表底部向上扫描最近 tailSize 条，返回第一个 UserMessage。
+     * 配置了 instruction 时末尾可能是 AgentInstructionMessage，真实用户消息在倒数第二条。
+     */
+    private Optional<UserMessage> findLatestUserMessageInTail(List<Message> messages, int tailSize) {
+        if (CollUtil.isEmpty(messages)) {
+            return Optional.empty();
+        }
+        int start = Math.max(0, messages.size() - tailSize);
+        for (int i = messages.size() - 1; i >= start; i--) {
+            Message message = messages.get(i);
+            if (message instanceof UserMessage userMessage) {
+                return Optional.of(userMessage);
+            }
+        }
+        return Optional.empty();
     }
 
     private Optional<MessageVO> toMessageVO(Message message, String sessionId, int messageIndex,

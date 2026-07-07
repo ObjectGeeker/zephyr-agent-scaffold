@@ -3,10 +3,13 @@ package com.object.ai.agent.service.chat.impl;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.map.MapUtil;
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.extra.spring.SpringUtil;
 import com.alibaba.cloud.ai.graph.NodeOutput;
 import com.alibaba.cloud.ai.graph.RunnableConfig;
+import com.object.ai.agent.constants.ModelMetadataKeys;
 import com.object.ai.agent.model.context.ModelContextHolder;
+import com.object.ai.agent.model.context.ModelCredentials;
 import com.object.ai.agent.model.valobj.AgentAssemblyRegisterVO;
 import com.object.ai.agent.model.valobj.AgentChatRequestVO;
 import com.object.ai.agent.model.valobj.AgentStreamRequestVO;
@@ -49,11 +52,11 @@ public class AgentChatServiceImpl implements AgentChatService {
         AgentAssemblyRegisterVO registerVO = SpringUtil.getBean(
                 "Agent_" + agentId, AgentAssemblyRegisterVO.class);
         String threadId = agentChatRequestVO.getUserId() + "_" + agentChatRequestVO.getSessionId();
-        RunnableConfig config = buildMessageSaveConfig(threadId, agentChatRequestVO.getFileIds(),
-                agentChatRequestVO.getSaveMessage());
+        RunnableConfig config = buildRunnableConfig(threadId, agentChatRequestVO.getFileIds(),
+                agentChatRequestVO.getSaveMessage(), null);
         try {
             UserMessage userMessage = buildUserMessage(agentChatRequestVO.getUserMessage(),
-                    agentChatRequestVO.getFileIds());
+                    agentChatRequestVO.getFileIds(), null);
             return registerVO.getRunnerAgent()
                     .invokeAndGetOutput(userMessage, config)
                     .map(this::extractAssistantText)
@@ -80,41 +83,74 @@ public class AgentChatServiceImpl implements AgentChatService {
         AgentAssemblyRegisterVO registerVO = SpringUtil.getBean(
                 "Agent_" + agentId, AgentAssemblyRegisterVO.class);
         String threadId = chatRequestDTO.getThreadId();
-        RunnableConfig config = buildMessageSaveConfig(threadId, chatRequestDTO.getFileIds(),
-                chatRequestDTO.getSaveMessage());
+        ModelCredentials credentials = buildModelCredentials(chatRequestDTO);
+        RunnableConfig config = buildRunnableConfig(threadId, chatRequestDTO.getFileIds(),
+                chatRequestDTO.getSaveMessage(), credentials);
+        if (hasByokFields(credentials)) {
+            ModelContextHolder.set(credentials);
+        }
         try {
-            UserMessage userMessage = buildUserMessage(chatRequestDTO.getMessage(), chatRequestDTO.getFileIds());
+            UserMessage userMessage = buildUserMessage(chatRequestDTO.getMessage(), chatRequestDTO.getFileIds(),
+                    credentials);
             Flux<NodeOutput> flux = registerVO.getRunnerAgent()
                     .stream(userMessage, config);
             flux.subscribe(
                     nodeOutput -> nodeMapper.apply(nodeOutput)
                             .ifPresent(response -> sendStreamEvent(sseEmitter, response)),
-                    sseEmitter::completeWithError,
+                    error -> {
+                        ModelContextHolder.clear();
+                        sseEmitter.completeWithError(error);
+                    },
                     () -> {
                         sendStreamEvent(sseEmitter, completeSupplier.get());
                         sseEmitter.complete();
+                        ModelContextHolder.clear();
                     }
             );
         } catch (Exception e) {
+            ModelContextHolder.clear();
             log.error("agent chat error", e);
             sseEmitter.completeWithError(e);
         }
     }
 
+    private ModelCredentials buildModelCredentials(AgentStreamRequestVO request) {
+        return ModelCredentials.builder()
+                .apiKey(request.getApiKey())
+                .model(request.getModel())
+                .baseUrl(request.getBaseUrl())
+                .completionsPath(request.getCompletionPath())
+                .multiModel(false)
+                .build();
+    }
+
+    private boolean hasByokFields(ModelCredentials credentials) {
+        if (credentials == null) {
+            return false;
+        }
+        return StrUtil.isNotBlank(credentials.getApiKey())
+                || StrUtil.isNotBlank(credentials.getModel())
+                || StrUtil.isNotBlank(credentials.getBaseUrl())
+                || StrUtil.isNotBlank(credentials.getCompletionsPath());
+    }
+
     /**
      * 构建对话用户消息，按需附加多模态内容。
      */
-    private UserMessage buildUserMessage(String text, List<String> fileIds) {
+    private UserMessage buildUserMessage(String text, List<String> fileIds, ModelCredentials credentials) {
         List<Media> mediaList = multiModalMediaService.loadMediaByFileIds(fileIds);
         UserMessage.Builder builder = UserMessage.builder().text(text);
         if (CollUtil.isNotEmpty(mediaList)) {
             builder.media(mediaList);
-            ModelContextHolder.get().setMultiModel(true);
+            if (credentials != null) {
+                credentials.setMultiModel(true);
+            }
         }
         return builder.build();
     }
 
-    private RunnableConfig buildMessageSaveConfig(String threadId, List<String> fileIds, Boolean saveMessage) {
+    private RunnableConfig buildRunnableConfig(String threadId, List<String> fileIds, Boolean saveMessage,
+                                               ModelCredentials credentials) {
         RunnableConfig.Builder builder = RunnableConfig.builder()
                 .threadId(threadId);
         if (StpUtil.isLogin()) {
@@ -125,6 +161,9 @@ public class AgentChatServiceImpl implements AgentChatService {
             if (CollUtil.isNotEmpty(fileIds)) {
                 builder.addMetadata(MemoryMetadataKeys.FILE_IDS, fileIds);
             }
+        }
+        if (hasByokFields(credentials)) {
+            builder.addMetadata(ModelMetadataKeys.MODEL_CREDENTIALS, credentials);
         }
         return builder.build();
     }

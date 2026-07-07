@@ -2,8 +2,6 @@ package com.object.ai.agent.controller;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.stp.StpUtil;
-import com.object.ai.agent.model.context.ModelContextHolder;
-import com.object.ai.agent.model.context.ModelCredentials;
 import com.object.ai.agent.model.response.AgentInfoDTO;
 import com.object.ai.agent.model.valobj.AgentChatRequestVO;
 import com.object.ai.agent.model.valobj.AgentStreamRequestVO;
@@ -56,17 +54,7 @@ public class AgentController {
     @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream(@Valid @RequestBody AgentStreamRequestVO request) {
         StpUtil.checkLogin();
-        // 保存上下文信息
-        ModelCredentials credentials = ModelCredentials.builder()
-                .apiKey(request.getApiKey())
-                .model(request.getModel())
-                .baseUrl(request.getBaseUrl())
-                .completionsPath(request.getCompletionPath())
-                .multiModel(false)
-                .build();
-        ModelContextHolder.set(credentials);
         SseEmitter sseEmitter = new SseEmitter(SSE_TIMEOUT);
-        // 异步执行流式对话，避免阻塞请求线程
         agentChatService.stream(request, sseEmitter);
         return sseEmitter;
     }

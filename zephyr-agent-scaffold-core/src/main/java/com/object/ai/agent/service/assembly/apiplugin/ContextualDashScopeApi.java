@@ -290,14 +290,20 @@ public class ContextualDashScopeApi extends DashScopeApi {
         DashScopeAiStreamFunctionCallingHelper chunkMerger = new DashScopeAiStreamFunctionCallingHelper(
                 incrementalOutput);
 
-        var chatCompletionUri = StrUtil.isNotBlank(modelCredentials.getCompletionsPath()) ? modelCredentials.getCompletionsPath() : this.completionsPath;
+        String chatCompletionUri = this.completionsPath;
+        if (modelCredentials != null && StrUtil.isNotBlank(modelCredentials.getCompletionsPath())) {
+            chatCompletionUri = modelCredentials.getCompletionsPath();
+        }
         if (Boolean.TRUE.equals(chatRequest.multiModel())) {
             chatCompletionUri = MULTIMODAL_GENERATION_RESTFUL_URL;
         }
 
         WebClient threadWebClient = this.webClient;
-        if (StrUtil.isNotBlank(modelCredentials.getBaseUrl())) {
-            threadWebClient = webClientBuilder.baseUrl(modelCredentials.getBaseUrl()).defaultHeaders(finalHeaders).build();
+        if (modelCredentials != null && StrUtil.isNotBlank(modelCredentials.getBaseUrl())) {
+            threadWebClient = webClientBuilder.clone()
+                    .baseUrl(modelCredentials.getBaseUrl())
+                    .defaultHeaders(finalHeaders)
+                    .build();
         }
 
         return threadWebClient.post().uri(chatCompletionUri).headers(headers -> {

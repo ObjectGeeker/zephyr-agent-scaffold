@@ -169,15 +169,23 @@ public class ContextualOpenAiApi extends OpenAiApi {
 
         AtomicBoolean isInsideTool = new AtomicBoolean(false);
 
-        // ✨直接替换请求的数据
         WebClient threadWebClient = this.webClient;
-        if (StrUtil.isNotBlank(modelCredentials.getBaseUrl())) {
-            threadWebClient = webClientBuilder.baseUrl(modelCredentials.getBaseUrl()).defaultHeaders(finalHeaders).build();
+        String requestUri = this.completionsPath;
+        if (modelCredentials != null) {
+            if (StrUtil.isNotBlank(modelCredentials.getBaseUrl())) {
+                threadWebClient = webClientBuilder.clone()
+                        .baseUrl(modelCredentials.getBaseUrl())
+                        .defaultHeaders(finalHeaders)
+                        .build();
+            }
+            if (StrUtil.isNotBlank(modelCredentials.getCompletionsPath())) {
+                requestUri = modelCredentials.getCompletionsPath();
+            }
         }
 
         // @formatter:off
         return threadWebClient.post()
-                .uri(StrUtil.isNotBlank(modelCredentials.getCompletionsPath()) ? modelCredentials.getCompletionsPath() : this.completionsPath)
+                .uri(requestUri)
                 .headers(headers -> {
                     headers.addAll(additionalHttpHeader);
                     addDefaultHeadersIfMissing(headers);
