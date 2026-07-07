@@ -3,7 +3,9 @@ package com.object.ai.memory.mapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.object.ai.memory.model.po.MessagePO;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.Collections;
 import java.util.List;
@@ -51,4 +53,10 @@ public interface MessageMapper extends BaseMapper<MessagePO> {
         Collections.reverse(messages);
         return messages;
     }
+
+    /**
+     * 按会话 ID 物理删除消息。手写 SQL 不受 MyBatis-Plus 逻辑删除注入影响，为真实 DELETE。
+     */
+    @Delete("DELETE FROM tb_message WHERE session_id = #{sessionId}")
+    int physicalDeleteBySessionId(@Param("sessionId") String sessionId);
 }

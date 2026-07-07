@@ -4,7 +4,6 @@ import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.object.ai.common.exception.BizErrorCode;
 import com.object.ai.common.exception.BusinessException;
 import com.object.ai.memory.mapper.MessageMapper;
@@ -147,12 +146,7 @@ public class AgentMemoryServiceImpl implements AgentMemoryService {
             throw new BusinessException(BizErrorCode.OPERATION_ERROR, "删除会话失败");
         }
 
-        LambdaUpdateWrapper<MessagePO> messageWrapper = new LambdaUpdateWrapper<>();
-        messageWrapper.eq(MessagePO::getSessionId, request.getId())
-                .set(MessagePO::getDeleted, true)
-                .set(MessagePO::getUpdateBy, StpUtil.getLoginIdAsString())
-                .set(MessagePO::getUpdateTime, LocalDateTime.now());
-        messageMapper.update(null, messageWrapper);
+        messageMapper.physicalDeleteBySessionId(request.getId());
         return true;
     }
 
