@@ -86,9 +86,6 @@ public class AgentChatServiceImpl implements AgentChatService {
         ModelCredentials credentials = buildModelCredentials(chatRequestDTO);
         RunnableConfig config = buildRunnableConfig(threadId, chatRequestDTO.getFileIds(),
                 chatRequestDTO.getSaveMessage(), credentials);
-        if (hasByokFields(credentials)) {
-            ModelContextHolder.set(credentials);
-        }
         try {
             UserMessage userMessage = buildUserMessage(chatRequestDTO.getMessage(), chatRequestDTO.getFileIds(),
                     credentials);
@@ -97,18 +94,13 @@ public class AgentChatServiceImpl implements AgentChatService {
             flux.subscribe(
                     nodeOutput -> nodeMapper.apply(nodeOutput)
                             .ifPresent(response -> sendStreamEvent(sseEmitter, response)),
-                    error -> {
-                        ModelContextHolder.clear();
-                        sseEmitter.completeWithError(error);
-                    },
+                    sseEmitter::completeWithError,
                     () -> {
                         sendStreamEvent(sseEmitter, completeSupplier.get());
                         sseEmitter.complete();
-                        ModelContextHolder.clear();
                     }
             );
         } catch (Exception e) {
-            ModelContextHolder.clear();
             log.error("agent chat error", e);
             sseEmitter.completeWithError(e);
         }
