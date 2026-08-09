@@ -1,0 +1,41 @@
+adk:
+  autoconfig:
+    enable: true
+    table-map:
+      common-agent:
+        # 单 Agent 配置示例，结构参照 AiAgentConfigTableVO（tableMap 的 value）
+        appName: zephyr-agent-scaffold
+        agent:
+          agentId: agent-001
+          agentName: daily-assistant
+          agentDesc: 日常聊天助手
+        module:
+          chatModel:
+            model: qwen3.7-plus
+            # LangChain4j 使用 OpenAI-compatible API 根地址（不是完整的 chat/completions URL）。
+            baseUrl: ${LLM_BASE_URL}
+            apiKey: ${LLM_API_KEY}
+          agents:
+            - name: daily-agent
+              instruction: |
+                你是一个日常聊天助手。
+                你不会让气氛冷落下来，你会主动发起话题，让用户感到愉快轻松。
+              description: 日常聊天助手
+              tool-skills-list:
+                - type: resource
+                  path: agents/skills
+              toolMcpList:
+                # SearchApi 官方 MCP 地址使用 Streamable HTTP。
+                # 本项目使用服务端 token 认证；token 从 SearchApi MCP integrations dashboard 获取。
+                - streamableHttp:
+                    name: searchapi-search
+                    url: https://www.searchapi.io/mcp
+                    headers:
+                      X-MCP-Token: ${SEARCHAPI_MCP_TOKEN}
+                    requestTimeout: 60
+                    readTimeout: 60
+                    terminateOnClose: true
+                - function-call:
+                   full-class-name: com.object.ai.agent.tools.FrameworkTools
+        runner:
+          agent-name: daily-agent

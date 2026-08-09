@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="zephyr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#121210">
+    <title>Zephyr AI 对话</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css">
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" type="text/css">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style type="text/tailwindcss">
+        @theme {
+            --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+    </style>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<svg class="svg-sprite" aria-hidden="true" focusable="false">
+    <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="icon-settings" viewBox="0 0 24 24"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m19.4 15 .1.1a1.8 1.8 0 0 1-2.5 2.5l-.1-.1a1.8 1.8 0 0 0-3 .9v.2a1.8 1.8 0 0 1-3.6 0v-.2a1.8 1.8 0 0 0-3-.9l-.1.1a1.8 1.8 0 0 1-2.5-2.5l.1-.1a1.8 1.8 0 0 0-.9-3h-.2a1.8 1.8 0 0 1 0-3h.2a1.8 1.8 0 0 0 .9-3l-.1-.1a1.8 1.8 0 0 1 2.5-2.5l.1.1a1.8 1.8 0 0 0 3-.9v-.2a1.8 1.8 0 0 1 3.6 0v.2a1.8 1.8 0 0 0 3 .9l.1-.1a1.8 1.8 0 0 1 2.5 2.5l-.1.1a1.8 1.8 0 0 0 .9 3h.2a1.8 1.8 0 0 1 0 3h-.2a1.8 1.8 0 0 0-.9 3Z"/></symbol>
+    <symbol id="icon-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="icon-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="icon-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+    <symbol id="icon-arrow-up-right" viewBox="0 0 24 24"><path d="M7 17 17 7M8 7h9v9"/></symbol>
+    <symbol id="icon-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6.5 7l.7 12h9.6l.7-12M9 7l1-3h4l1 3"/></symbol>
+    <symbol id="icon-message" viewBox="0 0 24 24"><path d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v6a2.5 2.5 0 0 1-2.5 2.5H11l-4.5 4v-4.2A2.5 2.5 0 0 1 5 12.5v-6Z"/></symbol>
+    <symbol id="icon-shield" viewBox="0 0 24 24"><path d="M12 3 19 6v5.5c0 4.4-2.8 7.6-7 9.5-4.2-1.9-7-5.1-7-9.5V6l7-3Z"/><path d="m8.8 12 2.1 2.1 4.4-4.4"/></symbol>
+    <symbol id="icon-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="icon-spark" viewBox="0 0 24 24"><path d="m12 3 1.5 6.5L20 12l-6.5 1.5L12 20l-1.5-6.5L4 12l6.5-2.5L12 3Z"/></symbol>
+    <symbol id="icon-type" viewBox="0 0 24 24"><path d="M5 5h14M12 5v14M8 19h8"/></symbol>
+    <symbol id="icon-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m15.5 8.5-2 5-5 2 2-5 5-2Z"/></symbol>
+    <symbol id="icon-lightbulb" viewBox="0 0 24 24"><path d="M8.5 15.5A6 6 0 1 1 15.5 15c-.8.7-1.3 1.5-1.5 2.5h-4c-.2-1-.7-1.7-1.5-2.5Z"/><path d="M9.5 21h5M10 18h4"/></symbol>
+    <symbol id="icon-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2"/></symbol>
+    <symbol id="icon-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+</svg>
+
+<div class="app-shell">
+    <aside class="sidebar" id="sidebar" aria-label="对话导航">
+        <div class="sidebar-top">
+            <button class="new-chat-button btn btn-primary" id="newChatButton" type="button">
+                <svg class="icon-svg" aria-hidden="true"><use href="#icon-plus"></use></svg>
+                <span>新建对话</span>
+                <span class="shortcut">⌘ K</span>
+            </button>
+            <div class="sidebar-section-heading"><span>最近对话</span><span class="conversation-count" id="conversationCount">0</span></div>
+            <div class="conversation-list" id="conversationList"></div>
+            <div class="assistant-picker">
+                <label for="agentSelect">当前助手</label>
+                <div class="assistant-select-wrap">
+                    <select id="agentSelect" class="select select-bordered" aria-label="选择助手"><option value="">加载中...</option></select>
+                    <svg class="icon-svg select-chevron" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+                </div>
+            </div>
+        </div>
+        <div class="sidebar-bottom">
+            <div class="connection-pill"><span class="status-dot"></span><span id="connectionText">正在连接服务</span></div>
+            <button class="sidebar-action btn btn-ghost" id="settingsButton" type="button">
+                <svg class="icon-svg" aria-hidden="true"><use href="#icon-settings"></use></svg><span>设置</span>
+            </button>
+            <div class="user-card">
+                <div class="avatar avatar-user">U</div>
+                <div class="user-meta"><strong>本地用户</strong><span>BYOK 模式</span></div>
+                <svg class="icon-svg user-more" aria-hidden="true"><use href="#icon-more"></use></svg>
+            </div>
+        </div>
+    </aside>
+    <button class="sidebar-backdrop hidden" id="sidebarBackdrop" type="button" aria-label="关闭对话导航"></button>
+
+    <main class="main-content">
+        <header class="topbar">
+            <button class="mobile-menu btn btn-ghost" id="mobileMenuButton" type="button" aria-label="打开菜单" title="打开菜单"><svg class="icon-svg" aria-hidden="true"><use href="#icon-menu"></use></svg></button>
+            <div class="brand-mark"><span class="brand-orbit" aria-hidden="true"></span><span>Zephyr</span><span class="brand-status">AI WORKSPACE</span></div>
+            <div class="model-picker-wrap">
+                <span class="model-label">模型</span>
+                <select id="modelSelect" class="model-picker select select-ghost" aria-label="选择模型"><option value="">服务端默认模型</option></select>
+                <svg class="icon-svg model-chevron" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+            </div>
+            <div class="topbar-actions">
+                <button class="icon-button btn btn-ghost" id="topSettingsButton" type="button" aria-label="打开设置" title="设置"><svg class="icon-svg" aria-hidden="true"><use href="#icon-settings"></use></svg></button>
+                <button class="avatar avatar-user top-avatar" type="button" aria-label="本地用户">U</button>
+            </div>
+        </header>
+
+        <section class="chat-stage" id="chatStage">
+            <div class="welcome" id="welcomeView">
+                <div class="welcome-kicker"><span class="welcome-signal"></span>Ready when you are</div>
+                <div class="welcome-icon"><span class="brand-orbit large" aria-hidden="true"></span></div>
+                <p class="eyebrow">Zephyr agent scaffold</p>
+                <h1>把想法变成下一步。</h1>
+                <p class="welcome-desc">和你的智能助手一起思考、创作与解决问题。</p>
+                <div class="prompt-grid">
+                    <button class="prompt-card card" type="button" data-prompt="帮我梳理一下今天的工作计划">
+                        <span class="prompt-icon"><svg class="icon-svg" aria-hidden="true"><use href="#icon-spark"></use></svg></span><span><strong>规划一天</strong><small>整理工作与生活安排</small></span><svg class="card-arrow icon-svg" aria-hidden="true"><use href="#icon-arrow-up-right"></use></svg>
+                    </button>
+                    <button class="prompt-card card" type="button" data-prompt="请帮我写一段简洁的产品介绍">
+                        <span class="prompt-icon"><svg class="icon-svg" aria-hidden="true"><use href="#icon-type"></use></svg></span><span><strong>开始创作</strong><small>写作、润色或头脑风暴</small></span><svg class="card-arrow icon-svg" aria-hidden="true"><use href="#icon-arrow-up-right"></use></svg>
+                    </button>
+                    <button class="prompt-card card" type="button" data-prompt="用通俗的方式解释一下量子计算">
+                        <span class="prompt-icon"><svg class="icon-svg" aria-hidden="true"><use href="#icon-compass"></use></svg></span><span><strong>探索新知</strong><small>从复杂概念中找到答案</small></span><svg class="card-arrow icon-svg" aria-hidden="true"><use href="#icon-arrow-up-right"></use></svg>
+                    </button>
+                    <button class="prompt-card card" type="button" data-prompt="给我推荐三个适合周末的活动">
+                        <span class="prompt-icon"><svg class="icon-svg" aria-hidden="true"><use href="#icon-lightbulb"></use></svg></span><span><strong>获得灵感</strong><small>发现下一件有趣的事</small></span><svg class="card-arrow icon-svg" aria-hidden="true"><use href="#icon-arrow-up-right"></use></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="messages" id="messages" aria-live="polite"></div>
+            <div class="typing-row hidden" id="typingRow" aria-live="polite"><span class="typing-avatar"><span class="brand-orbit" aria-hidden="true"></span></span><span class="typing-label">正在思考</span><span class="typing-dots" aria-hidden="true"><i></i><i></i><i></i></span></div>
+        </section>
+
+        <footer class="composer-area">
+            <form class="composer" id="composerForm">
+                <textarea id="messageInput" rows="1" placeholder="给 Zephyr 发消息..." aria-label="消息内容"></textarea>
+                <div class="composer-tools">
+                    <div class="composer-hints"><span class="hint-chip"><kbd>Enter</kbd> 发送</span><span class="hint-chip"><kbd>Shift</kbd> + <kbd>Enter</kbd> 换行</span></div>
+                    <button class="send-button btn btn-primary" id="sendButton" type="submit" aria-label="发送消息" title="发送消息"><svg class="icon-svg" aria-hidden="true"><use href="#icon-arrow-up"></use></svg></button>
+                </div>
+            </form>
+            <p class="disclaimer">Zephyr 可能会犯错，请核实重要信息。</p>
+        </footer>
+    </main>
+</div>
+
+<div class="modal-backdrop hidden" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="settings-modal modal-box">
+        <div class="modal-header"><div><p class="eyebrow">连接与模型</p><h2 id="settingsTitle">对话设置</h2></div><button class="close-button btn btn-ghost btn-circle" id="closeSettingsButton" type="button" aria-label="关闭设置" title="关闭设置"><svg class="icon-svg" aria-hidden="true"><use href="#icon-close"></use></svg></button></div>
+        <div class="settings-body">
+            <div class="field"><label for="baseUrlInput">Base URL <span>可选</span></label><input class="input input-bordered" id="baseUrlInput" type="url" placeholder="例如 https://api.openai.com/v1"><small>留空时使用服务端配置的地址。</small></div>
+            <div class="field"><label for="apiKeyInput">API Key <span>可选</span></label><div class="password-wrap"><input class="input input-bordered" id="apiKeyInput" type="password" placeholder="sk-..."><button class="password-toggle btn btn-ghost btn-xs" id="toggleKeyButton" type="button">显示</button></div><small>仅保存在当前浏览器的本地存储中。</small></div>
+            <div class="field"><label for="modelListInput">模型列表 <span>可选</span></label><textarea class="textarea textarea-bordered" id="modelListInput" rows="5" placeholder="每行一个模型，例如：&#10;gpt-4o&#10;claude-3-5-sonnet&#10;qwen-plus"></textarea><small>支持换行或英文逗号分隔；留空时使用服务端默认模型。</small></div>
+            <div class="settings-note alert"><svg class="icon-svg" aria-hidden="true"><use href="#icon-shield"></use></svg><span>你的配置只用于本页面发起对话请求，不会上传到其他地方。</span></div>
+        </div>
+        <div class="modal-footer"><button class="text-button btn btn-ghost" id="resetSettingsButton" type="button">恢复默认</button><button class="primary-button btn btn-primary" id="saveSettingsButton" type="button">保存设置</button></div>
+    </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<!-- Markdown is rendered client-side and sanitized before insertion. Both libraries have a text-only fallback in app.js. -->
+<script src="https://cdn.jsdelivr.net/npm/marked/lib/marked.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

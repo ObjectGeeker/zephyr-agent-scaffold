@@ -1,0 +1,50 @@
+# MultiAgent 配置示例，结构参照 AiAgentConfigTableVO（tableMap 的 value）
+appName: zephyr-agent-scaffold
+agent:
+  agentId: agent-002
+  agentName: travel-planner
+  agentDesc: 旅行规划助手，由路线规划与酒店预订两个子智能体协作完成旅行方案
+module:
+  chatModel:
+    model: qwen-plus
+    baseUrl: https://dashscope.aliyuncs.com/compatible-mode/v1
+    apiKey: sk-your-api-key
+  agents:
+    - name: route_agent
+      instruction: |
+        你是一个路线规划专家。
+        根据用户的出发地、目的地和出行天数，规划合理的旅行路线与每日行程。
+      description: 规划旅行路线与每日行程
+      outputKey: route_plan
+      toolMcpList:
+        - sse:
+            name: map-mcp
+            baseUri: http://localhost:8080
+            sseEndpoint: /sse
+            requestTimeout: 3000
+    - name: hotel_agent
+      instruction: |
+        你是一个酒店预订专家。
+        根据路线规划结果中的城市与日期，推荐合适的酒店并输出预订建议。
+      description: 根据行程推荐并预订酒店
+      outputKey: hotel_plan
+      toolMcpList:
+        - stdio:
+            name: hotel-mcp
+            requestTimeout: 3000
+            serverParameters:
+              command: npx
+              args:
+                - "-y"
+                - "@example/hotel-mcp-server"
+              env:
+                HOTEL_API_KEY: your-hotel-api-key
+  multiAgents:
+    # type 可选值：loop、parallel、sequential
+    - type: sequential
+      name: travel_planner
+      description: 先由路线规划子智能体生成行程，再由酒店预订子智能体按行程推荐酒店
+      subAgents:
+        - route_agent
+        - hotel_agent
+      maxIterations: 3
