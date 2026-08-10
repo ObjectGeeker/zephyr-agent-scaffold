@@ -8,6 +8,8 @@ import com.object.ai.agent.model.response.AgentSessionCreateResponse;
 import com.object.ai.agent.model.valobj.AiAgentConfigTableVO;
 import com.object.ai.agent.model.valobj.properties.AiAgentAutoConfigProperties;
 import com.object.ai.agent.service.AgentChatService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,6 +22,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("agent")
+@Tag(name = "AgentApi", description = "Agent智能体接口")
 public class AgentController {
 
     @Resource
@@ -29,6 +32,7 @@ public class AgentController {
     private AiAgentAutoConfigProperties properties;
 
     @PostMapping("query_ai_agent_list")
+    @Operation(summary = "查询Agent配置列表")
     public List<AiAgentInfoDTO> queryAiAgentList() {
         Map<String, AiAgentConfigTableVO> tableMap = properties.getTableMap();
         if (CollUtil.isEmpty(tableMap)) {
@@ -38,16 +42,19 @@ public class AgentController {
     }
 
     @PostMapping("session/create")
+    @Operation(summary = "创建一个会话")
     public AgentSessionCreateResponse createSession(@RequestBody AgentSessionCreateRequest request) {
         return agentChatService.createSession(request);
     }
 
     @PostMapping("chat")
+    @Operation(summary = "普通对话")
     public List<String> chat(@RequestBody AgentChatRequest agentChatRequest) {
         return agentChatService.chat(agentChatRequest);
     }
 
     @PostMapping("stream")
+    @Operation(summary = "流式对话")
     public SseEmitter stream(@RequestBody AgentChatRequest agentChatRequest) {
         // SseEmitter 是 Spring MVC 提供的“异步响应容器”。
         // Controller 不会在这里等待 AI 完整回答，而是先把这个容器交给 Spring，

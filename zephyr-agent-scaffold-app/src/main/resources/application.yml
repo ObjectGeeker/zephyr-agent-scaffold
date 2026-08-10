@@ -45,3 +45,22 @@ mybatis-plus:
     sequence:
       worker-id: ${random.int(1,31)}
       datacenter-id: ${random.int(1,31)}
+
+#Knife4j
+# springdoc-openapi项目配置
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  group-configs:
+    - group: 'default'
+      paths-to-match: '/**'
+      packages-to-scan: com.object.ai
+knife4j:
+  enable: false
+  setting:
+    language: zh_cn
+  production: true
