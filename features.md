@@ -13,5 +13,5 @@
   - 添加数据库通用配置 ✅
 - 引入Knife4j接口 ✅
   - 配置生产环境不启用 ✅
-- 引入Redis依赖
-  - 采用Redisson手动配置
+- 引入Redis依赖 ✅
+  - 采用Redisson手动配置 ✅

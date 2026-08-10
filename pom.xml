@@ -61,6 +61,12 @@
             <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
             <version>3.5.16</version>
         </dependency>
+        <!--redis-->
+        <dependency>
+            <groupId>org.redisson</groupId>
+            <artifactId>redisson</artifactId>
+            <version>4.7.0</version>
+        </dependency>
         <!--设计模式-->
         <dependency>
             <groupId>cn.bugstack.wrench</groupId>
