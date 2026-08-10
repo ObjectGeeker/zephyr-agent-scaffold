@@ -32,5 +32,7 @@ public class RedisClientConfigProperties {
     private int pingInterval = 0;
     /** 设置是否保持长连接，默认为true */
     private boolean keepAlive = true;
+    /** 设置是启用redis */
+    private boolean enable = false;
 
 }
