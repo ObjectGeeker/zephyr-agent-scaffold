@@ -50,3 +50,4 @@ build/
 /data/
 /zephyr-agent-scaffold-app/data/
 .idea
+/zephyr-agent-scaffold-app/src/main/resources/application-local.yml
