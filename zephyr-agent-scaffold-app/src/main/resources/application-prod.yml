@@ -1,3 +1,7 @@
+security:
+  user:
+    register-enabled: false
+
 knife4j:
   enable: false
   setting:

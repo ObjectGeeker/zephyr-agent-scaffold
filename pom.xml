@@ -51,6 +51,23 @@
             <artifactId>langchain4j-core</artifactId>
             <version>1.18.1</version>
         </dependency>
+        <!--权限认证-->
+        <!-- Sa-Token 权限认证, 在线文档：https://sa-token.com -->
+        <dependency>
+            <groupId>cn.dev33</groupId>
+            <artifactId>sa-token-spring-boot3-starter</artifactId>
+            <version>1.45.0</version>
+        </dependency>
+        <dependency>
+            <groupId>cn.dev33</groupId>
+            <artifactId>sa-token-redisson</artifactId>
+            <version>1.45.0</version>
+        </dependency>
+        <dependency>
+            <groupId>cn.dev33</groupId>
+            <artifactId>sa-token-jwt</artifactId>
+            <version>1.45.0</version>
+        </dependency>
         <!--ORM框架-->
         <dependency>
             <groupId>com.mysql</groupId>
@@ -82,6 +99,11 @@
         <dependency>
             <groupId>cn.hutool</groupId>
             <artifactId>hutool-core</artifactId>
+            <version>5.8.47</version>
+        </dependency>
+        <dependency>
+            <groupId>cn.hutool</groupId>
+            <artifactId>hutool-crypto</artifactId>
             <version>5.8.47</version>
         </dependency>
         <dependency>
